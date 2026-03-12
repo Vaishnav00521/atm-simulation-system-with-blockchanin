@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://localhost:8080',
+    // This tells React: "Use the live URL if we are on Vercel, otherwise use localhost"
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
 });
 
 // The Interceptor: Automatically attaches the JWT token to EVERY request
