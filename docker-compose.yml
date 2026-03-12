@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # 1. The Database Container
+  mysql-db:
+    image: mysql:8.0
+    container_name: atm-mysql
+    environment:
+      MYSQL_DATABASE: atm_blockchain
+      MYSQL_ROOT_PASSWORD: YOUR_MYSQL_PASSWORD
+    ports:
+      # We map this to 3307 on your laptop so it doesn't conflict with your local MySQL
+      - "3307:3306"
+    networks:
+      - atm-network
+
+  # 2. Your Spring Boot Container
+  atm-backend:
+    image: global-atm-backend:latest
+    container_name: atm-backend-server
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql-db
+    environment:
+      # Notice how the URL points directly to 'mysql-db' instead of localhost!
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/atm_blockchain?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=Vaish@005210
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    networks:
+      - atm-network
+
+networks:
+  atm-network:
+    driver: bridge
