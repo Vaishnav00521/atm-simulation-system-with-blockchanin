@@ -4,7 +4,7 @@ import {
   Lock, User, ShieldCheck, Cpu, ArrowRight, Eye, EyeOff, 
   Terminal, AlertTriangle, UserPlus, LogIn
 } from 'lucide-react';
-import api from '../api/axiosConfig';
+import axios from 'axios'; // 🔴 Changed to standard axios to bypass broken configs
 import { useNavigate } from 'react-router-dom';
 
 const bootSequence = [
@@ -18,7 +18,7 @@ const bootSequence = [
 
 const Login = () => {
   const navigate = useNavigate();
-  
+
   // --- STATE ---
   const [isRegistering, setIsRegistering] = useState(false);
   const [username, setUsername] = useState('');
@@ -53,33 +53,35 @@ const Login = () => {
       return;
     }
 
-    const endpoint = isRegistering ? '/api/auth/register' : '/api/auth/login';
+    // 🔴 THE FIX: Force Axios to use your Render URL via the Vercel Environment Variable
+    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+    const endpoint = isRegistering ? `${API_BASE_URL}/api/auth/register` : `${API_BASE_URL}/api/auth/login`;
 
     try {
-      // Use the configured api instance with CORS and proper headers
-      const response = await api.post(endpoint, {
+      // 🔴 Send request directly using standard axios
+      const response = await axios.post(endpoint, {
         username: username,
         password: password
       });
 
-      if (response.data.token) {
+      if (response.data && response.data.token) {
         // Store Token AND Username securely in the browser
         localStorage.setItem('fintech_jwt', response.data.token);
-        localStorage.setItem('fintech_username', response.data.username);
-        
+        localStorage.setItem('fintech_username', response.data.username || username);
+
+        // Safely route to dashboard
         navigate('/dashboard');
+      } else {
+        setError('System error: Token not received from mainframe.');
       }
     } catch (err) {
       console.error("Auth Error:", err);
-      
-      // More detailed error handling
+
       if (err.code === 'ECONNREFUSED' || err.message.includes('Network Error')) {
-        setError('Cannot connect to server. Please ensure the backend is running on port 8080.');
+        setError('Cannot connect to server. Ensure backend is online and CORS is configured.');
       } else if (err.response) {
-        // Server responded with error
         setError(err.response.data?.message || `Server error: ${err.response.status}`);
       } else if (err.request) {
-        // Request made but no response
         setError('No response from server. Backend may be down.');
       } else {
         setError(isRegistering ? 'Registration failed. System error.' : 'Authorization failed. Invalid credentials.');
