@@ -1,25 +1,31 @@
 import axios from 'axios';
 
+// 🔴 1. Smart Routing: Uses Render in production, localhost in development
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 const api = axios.create({
-    // This tells React: "Use the live URL if we are on Vercel, otherwise use localhost"
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-// The Interceptor: Automatically attaches the JWT token to EVERY request
+// 🔴 2. The Security Interceptor
+// This intercepts EVERY request your app makes and silently attaches your JWT token.
+// This proves to the Spring Boot backend that you are securely logged in.
 api.interceptors.request.use(
-    (config) => {
-        // Force grab the latest token directly from the browser vault
-        const token = localStorage.getItem('fintech_jwt');
-        if (token) {
-            config.headers['Authorization'] = `Bearer ${token}`;
-        }
-        // Explicitly tell Java we are sending JSON
-        config.headers['Content-Type'] = 'application/json';
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
+  (config) => {
+    // We saved this exactly as 'fintech_jwt' in the Login.jsx file!
+    const token = localStorage.getItem('fintech_jwt');
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
 export default api;
