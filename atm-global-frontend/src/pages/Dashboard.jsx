@@ -11,7 +11,7 @@ import {
   ComposedChart, Area, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, LineChart, Line 
 } from 'recharts';
-import api from '../api/axiosConfig';
+import api from '../api/axiosConfig'; // 🔴 Using your secure interceptor to prevent 403 errors
 
 // ==========================================
 // 1. MOCK DATA & CONSTANTS
@@ -56,7 +56,8 @@ const StatCard = ({ title, value, trend, up, icon, sparklineData }) => (
     <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest relative z-10">{title}</p>
     <div className="flex items-end justify-between mt-1 relative z-10">
       <h3 className="text-3xl font-black text-white">{value}</h3>
-      <div className="w-16 h-8">
+      {/* 🔴 Added strict min-height to fix Recharts warning */}
+      <div className="w-16 h-8 min-h-[32px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={sparklineData}>
             <Line type="monotone" dataKey="val" stroke={up ? "#10b981" : "#ef4444"} strokeWidth={2} dot={false} />
@@ -108,7 +109,7 @@ const TransactionModal = ({ tx, onClose }) => {
 const Dashboard = () => {
   const [liveFeed, setLiveFeed] = useState([{ time: new Date().toLocaleTimeString(), node: 'Sys-Core', action: 'Awaiting WebSockets...' }]);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [activeTab, setActiveTab] = useState('liquidity'); 
+  const [activeTab, setActiveTab] = useState('liquidity');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
@@ -122,7 +123,7 @@ const Dashboard = () => {
     activeContracts: 1204
   });
 
-  // Fetch real data from Spring Boot API
+  // Fetch real data from Spring Boot API (Protected by Token)
   useEffect(() => {
     const fetchMetrics = async () => {
       try {
@@ -135,22 +136,32 @@ const Dashboard = () => {
     fetchMetrics();
   }, []);
 
-  // WebSockets Connection
+  // 🔴 FIXED: Corrected STOMP Client Syntax and SSL routing
   useEffect(() => {
-    const socket = new SockJS('http://localhost:8080/ws-fintech');
+    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
     const client = new Client({
-      webSocketFactory: () => socket,
+      webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws-fintech`),
       onConnect: () => {
         client.subscribe('/topic/live-feed', (message) => {
           try {
             const newFeedData = JSON.parse(message.body);
             setLiveFeed(prev => [newFeedData, ...prev].slice(0, 12));
-          } catch (e) { console.error("Payload parse error"); }
+          } catch (e) {
+            console.error("Payload parse error");
+          }
         });
+      },
+      onStompError: (frame) => {
+        console.error('Broker error: ' + frame.headers['message']);
       }
     });
+
     client.activate();
-    return () => { if (client.active) client.deactivate(); };
+
+    return () => {
+      if (client.active) client.deactivate();
+    };
   }, []);
 
   const handleSync = () => {
@@ -188,7 +199,7 @@ const Dashboard = () => {
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="w-full max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
-      
+
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 bg-zinc-950 border border-zinc-800 p-6 rounded-3xl shadow-xl">
         <div>
@@ -210,15 +221,15 @@ const Dashboard = () => {
 
       {/* KPI DASHBOARD */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        <StatCard 
-          title="Global Fiat Reserve" 
-          value={`$${metrics.fiatBalance.toLocaleString('en-US', {minimumFractionDigits: 2})}`} 
-          trend="+2.4%" up={true} icon={<WalletIcon className="text-emerald-500 w-6 h-6" />} sparklineData={[{val: 10}, {val: 15}, {val: 12}, {val: 20}, {val: 25}]} 
+        <StatCard
+          title="Global Fiat Reserve"
+          value={`$${metrics.fiatBalance.toLocaleString('en-US', {minimumFractionDigits: 2})}`}
+          trend="+2.4%" up={true} icon={<WalletIcon className="text-emerald-500 w-6 h-6" />} sparklineData={[{val: 10}, {val: 15}, {val: 12}, {val: 20}, {val: 25}]}
         />
-        <StatCard 
-          title="Crypto Vault (ETH)" 
-          value={metrics.cryptoBalance.toFixed(4)} 
-          trend="-0.8%" up={false} icon={<Globe className="text-teal-500 w-6 h-6" />} sparklineData={[{val: 25}, {val: 20}, {val: 22}, {val: 15}, {val: 10}]} 
+        <StatCard
+          title="Crypto Vault (ETH)"
+          value={metrics.cryptoBalance.toFixed(4)}
+          trend="-0.8%" up={false} icon={<Globe className="text-teal-500 w-6 h-6" />} sparklineData={[{val: 25}, {val: 20}, {val: 22}, {val: 15}, {val: 10}]}
         />
         <StatCard title="24h Trading Volume" value="$84.2M" trend="+12.5%" up={true} icon={<BarChart3 className="text-blue-500 w-6 h-6" />} sparklineData={[{val: 5}, {val: 10}, {val: 8}, {val: 18}, {val: 24}]} />
         <StatCard title="Active Contracts" value={metrics.activeContracts} trend="+1.2%" up={true} icon={<Cpu className="text-purple-500 w-6 h-6" />} sparklineData={[{val: 10}, {val: 11}, {val: 11}, {val: 12}, {val: 13}]} />
@@ -235,11 +246,12 @@ const Dashboard = () => {
               ))}
             </div>
           </div>
-          
+
           <div className="flex-1 w-full h-full relative">
             <AnimatePresence mode="wait">
               {activeTab === 'liquidity' ? (
-                <motion.div key="liq" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="absolute inset-0">
+                {/* 🔴 FIXED: Strict h-[350px] height to prevent Recharts -1 error */}
+                <motion.div key="liq" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="w-full h-[350px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart data={tradingData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                       <defs>
@@ -256,7 +268,7 @@ const Dashboard = () => {
                   </ResponsiveContainer>
                 </motion.div>
               ) : (
-                <motion.div key="alloc" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="absolute inset-0 flex items-center justify-center">
+                <motion.div key="alloc" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="w-full h-[350px] flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={allocationData} cx="50%" cy="50%" innerRadius={100} outerRadius={140} paddingAngle={5} dataKey="value" stroke="none" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
