@@ -51,17 +51,21 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // ALLOW SPECIFIC ORIGINS FOR DEPLOYMENT
+        // ALLOW LOCALHOST, 127.0.0.1, AND PRODUCTION DOMAINS
         configuration.setAllowedOrigins(List.of(
             "http://localhost:5173",
             "http://localhost:5174",
-            "https://global-atm-blockchain.vercel.app", // Add your actual Vercel domain here
-            "https://atm-global-frontend.vercel.app"    // Alternative name
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:5174",
+            "https://global-atm-blockchain.vercel.app",
+            "https://atm-global-frontend.vercel.app"
         ));
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type"));
+        configuration.setExposedHeaders(List.of("Authorization")); // Allow browser to see the token if needed
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L); // Cache preflight for 1 hour
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

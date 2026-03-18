@@ -4,7 +4,7 @@ import {
   Lock, User, ShieldCheck, Cpu, ArrowRight, Eye, EyeOff, 
   Terminal, AlertTriangle, UserPlus, LogIn
 } from 'lucide-react';
-import axios from 'axios'; // 🔴 Changed to standard axios to bypass broken configs
+import api from '../api/axiosConfig'; // 🔴 Shared API instance
 import { useNavigate } from 'react-router-dom';
 
 const bootSequence = [
@@ -53,13 +53,11 @@ const Login = () => {
       return;
     }
 
-    // 🔴 THE FIX: Force Axios to use your Render URL via the Vercel Environment Variable
-    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-    const endpoint = isRegistering ? `${API_BASE_URL}/api/auth/register` : `${API_BASE_URL}/api/auth/login`;
+    // 🔴 Use the shared api instance which handles baseURL and security protocols
+    const endpoint = isRegistering ? '/api/auth/register' : '/api/auth/login';
 
     try {
-      // 🔴 Send request directly using standard axios
-      const response = await axios.post(endpoint, {
+      const response = await api.post(endpoint, {
         username: username,
         password: password
       });

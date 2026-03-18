@@ -141,15 +141,16 @@ const Dashboard = () => {
     let client;
 
     try {
-      // 1. DYNAMIC URL LOGIC: Automatically match page protocol (http/https)
-      let rawUrl = import.meta.env.VITE_API_URL || 'https://global-atm-backend.onrender.com';
+      // 1. DYNAMIC URL LOGIC: Automatically detect if on localhost or remote
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      let rawUrl = import.meta.env.VITE_API_URL || (isLocal ? 'http://localhost:8080' : 'https://global-atm-backend.onrender.com');
       
       // Remove any existing protocol to re-attach correctly
       const cleanUrl = rawUrl.replace(/^https?:\/\//, '');
       const protocol = window.location.protocol === 'https:' ? 'https://' : 'http://';
       const socketUrl = `${protocol}${cleanUrl}/ws-fintech`;
 
-      console.log("Initializing Secure Socket:", socketUrl);
+      console.log(`[SYS] Initializing Secure Socket. Target: ${socketUrl}`);
 
       client = new Client({
         webSocketFactory: () => new SockJS(socketUrl, null, {

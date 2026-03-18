@@ -1,41 +1,48 @@
-// Protocol-aware URL logic to prevent Mixed Content errors
-let API_BASE_URL = import.meta.env.VITE_API_URL || 'https://global-atm-backend.onrender.com';
+import axios from 'axios';
 
-// Ensure protocol matches the current page (HTTPS vs HTTP)
-const protocol = window.location.protocol === 'https:' ? 'https://' : 'http://';
-const cleanBase = API_BASE_URL.replace(/^https?:\/\//, '');
-API_BASE_URL = `${protocol}${cleanBase}`;
+// 🚀 INTELLIGENT API_BASE_URL SELECTION
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-console.log("Using API Base:", API_BASE_URL);
+// Default to local backend if on localhost, otherwise use the public Render URL
+let API_BASE_URL = import.meta.env.VITE_API_URL || (isLocal ? 'http://localhost:8080' : 'https://global-atm-backend.onrender.com');
 
-const customFetch = async (endpoint, options = {}) => {
-  const token = localStorage.getItem('fintech_jwt');
+// Ensure protocol matches for remote deployments to prevent Mixed Content errors
+if (!isLocal && window.location.protocol === 'https:' && API_BASE_URL.startsWith('http://')) {
+    API_BASE_URL = API_BASE_URL.replace('http://', 'https://');
+}
 
-  const headers = {
+console.log(`[SYS] Initializing Network Layer. Target: ${API_BASE_URL}`);
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
     'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
-    ...options.headers,
-  };
+  },
+});
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+// Automatically inject JWT token into every request
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('fintech_jwt');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
-  // Automatically parse JSON to mimic Axios behavior
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw { response: { status: response.status, data } };
+// Optional: Handle common errors globally
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.warn(`[API ERROR] ${error.config?.url}:`, error.message);
+    if (error.response?.status === 403) {
+      // Possible expired token or unauthorized access
+      console.error("403 Forbidden: Potential JWT expiration or CORS issue.");
+    }
+    return Promise.reject(error);
   }
-
-  return { data };
-};
-
-// Expose standard methods so you don't have to rewrite your component code
-const api = {
-  get: (url, config) => customFetch(url, { method: 'GET', ...config }),
-  post: (url, data, config) => customFetch(url, { method: 'POST', body: JSON.stringify(data), ...config }),
-};
+);
 
 export default api;
