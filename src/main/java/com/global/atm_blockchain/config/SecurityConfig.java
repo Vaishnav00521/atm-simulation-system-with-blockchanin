@@ -47,16 +47,20 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // 🔴 THE NEW ENTERPRISE CORS CONFIGURATION
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // ALLOW ALL ORIGINS FOR DEPLOYMENT (Vercel, Localhost, etc.)
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        // ALLOW SPECIFIC ORIGINS FOR DEPLOYMENT
+        configuration.setAllowedOrigins(List.of(
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "https://global-atm-blockchain.vercel.app", // Add your actual Vercel domain here
+            "https://atm-global-frontend.vercel.app"    // Alternative name
+        ));
 
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Origin", "Accept", "X-Requested-With", "Access-Control-Request-Method", "Access-Control-Request-Headers"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
