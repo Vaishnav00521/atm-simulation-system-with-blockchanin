@@ -141,34 +141,35 @@ const Dashboard = () => {
     let client;
 
     try {
+      // 1. HARDENED URL LOGIC: Force HTTPS/WSS in production
       let rawUrl = import.meta.env.VITE_API_URL || 'https://global-atm-backend.onrender.com';
-
-      // If we are on Vercel (https), absolutely forbid localhost or http
-      if (window.location.protocol === 'https:') {
-        if (rawUrl.includes('localhost') || rawUrl.startsWith('http://localhost')) {
-          rawUrl = 'https://global-atm-backend.onrender.com';
-        } else if (rawUrl.startsWith('http://')) {
-          rawUrl = rawUrl.replace('http://', 'https://');
-        }
+      
+      // Ensure absolute security: if the page is HTTPS, the API must be HTTPS
+      if (window.location.protocol === 'https:' && rawUrl.startsWith('http://')) {
+        rawUrl = rawUrl.replace('http://', 'https://');
       }
 
       client = new Client({
-        webSocketFactory: () => new SockJS(`${rawUrl}/ws-fintech`),
+        webSocketFactory: () => new SockJS(`${rawUrl}/ws-fintech`, null, {
+          transports: ['websocket', 'xhr-streaming', 'xhr-polling']
+        }),
         onConnect: () => {
           client.subscribe('/topic/live-feed', (message) => {
             try {
               const newFeedData = JSON.parse(message.body);
               setLiveFeed(prev => [newFeedData, ...prev].slice(0, 12));
-            } catch (e) {}
+            } catch (e) {
+              console.error("Feed parse error:", e);
+            }
           });
         },
-        onStompError: (frame) => console.warn('Broker warning caught safely.'),
-        onWebSocketError: (event) => console.warn('WebSocket connection gracefully failed. UI will not crash.')
+        onStompError: (frame) => console.warn('STOMP error:', frame),
+        onWebSocketError: (event) => console.warn('WebSocket connection gracefully failed. Live feed will pause.')
       });
 
       client.activate();
     } catch (err) {
-      console.error("Caught socket error to prevent crash:", err);
+      console.error("Socket initialization failed:", err);
     }
 
     return () => {
