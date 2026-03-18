@@ -11,7 +11,7 @@ import {
   ComposedChart, Area, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, LineChart, Line 
 } from 'recharts';
-import api from '../api/axiosConfig'; // 🔴 Using your secure interceptor to prevent 403 errors
+import api from '../api/axiosConfig';
 
 // ==========================================
 // 1. MOCK DATA & CONSTANTS
@@ -56,9 +56,9 @@ const StatCard = ({ title, value, trend, up, icon, sparklineData }) => (
     <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest relative z-10">{title}</p>
     <div className="flex items-end justify-between mt-1 relative z-10">
       <h3 className="text-3xl font-black text-white">{value}</h3>
-      {/* 🔴 Added strict min-height to fix Recharts warning */}
-      <div className="w-16 h-8 min-h-[32px]">
-        <ResponsiveContainer width="100%" height="100%">
+      {/* 🔴 FIX: Added explicit style and minWidth/minHeight to kill the Recharts -1 warning */}
+      <div style={{ width: '64px', height: '32px' }}>
+        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
           <LineChart data={sparklineData}>
             <Line type="monotone" dataKey="val" stroke={up ? "#10b981" : "#ef4444"} strokeWidth={2} dot={false} />
           </LineChart>
@@ -116,51 +116,66 @@ const Dashboard = () => {
   const [selectedTx, setSelectedTx] = useState(null);
   const itemsPerPage = 6;
 
-  // Live Database Metrics State
   const [metrics, setMetrics] = useState({
     fiatBalance: 0.00,
     cryptoBalance: 0.00,
     activeContracts: 1204
   });
 
-  // Fetch real data from Spring Boot API (Protected by Token)
+  // Fetch real data from Spring Boot API
   useEffect(() => {
     const fetchMetrics = async () => {
       try {
         const response = await api.get('/api/dashboard/metrics');
-        setMetrics(response.data);
+        if(response.data) setMetrics(response.data);
       } catch (error) {
-        console.error("Failed to fetch live ledger data", error);
+        console.warn("API Note: Could not fetch live metrics. Proceeding with defaults.", error.message);
       }
     };
     fetchMetrics();
   }, []);
 
-  // 🔴 FIXED: Corrected STOMP Client Syntax and SSL routing
+  // 🔴 FIX: Crash-proof WebSocket connection with auto HTTPS upgrade
   useEffect(() => {
-    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+    let client;
 
-    const client = new Client({
-      webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws-fintech`),
-      onConnect: () => {
-        client.subscribe('/topic/live-feed', (message) => {
-          try {
-            const newFeedData = JSON.parse(message.body);
-            setLiveFeed(prev => [newFeedData, ...prev].slice(0, 12));
-          } catch (e) {
-            console.error("Payload parse error");
-          }
-        });
-      },
-      onStompError: (frame) => {
-        console.error('Broker error: ' + frame.headers['message']);
+    try {
+      let API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
+      // Security check: If Vercel is HTTPS, force the WebSocket to use HTTPS to prevent SecurityError
+      if (window.location.protocol === 'https:' && API_BASE_URL.startsWith('http://')) {
+        API_BASE_URL = API_BASE_URL.replace('http://', 'https://');
       }
-    });
 
-    client.activate();
+      client = new Client({
+        webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws-fintech`),
+        onConnect: () => {
+          client.subscribe('/topic/live-feed', (message) => {
+            try {
+              const newFeedData = JSON.parse(message.body);
+              setLiveFeed(prev => [newFeedData, ...prev].slice(0, 12));
+            } catch (e) {
+              console.warn("Payload parse error safely caught.");
+            }
+          });
+        },
+        onStompError: (frame) => {
+          console.warn('Broker warning safely caught: ' + frame.headers['message']);
+        },
+        onWebSocketError: (event) => {
+          console.warn('WebSocket connection gracefully failed. App will not crash.');
+        }
+      });
+
+      client.activate();
+    } catch (err) {
+      console.error("Caught socket error to prevent crash:", err);
+    }
 
     return () => {
-      if (client.active) client.deactivate();
+      if (client && client.active) {
+        client.deactivate();
+      }
     };
   }, []);
 
@@ -250,9 +265,9 @@ const Dashboard = () => {
           <div className="flex-1 w-full h-full relative">
             <AnimatePresence mode="wait">
               {activeTab === 'liquidity' ? (
-                {/* 🔴 FIXED: Strict h-[350px] height to prevent Recharts -1 error */}
                 <motion.div key="liq" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="w-full h-[350px]">
-                  <ResponsiveContainer width="100%" height="100%">
+                  {/* 🔴 FIX: minWidth={1} minHeight={1} applied here to stop Recharts crash */}
+                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                     <ComposedChart data={tradingData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
@@ -269,7 +284,8 @@ const Dashboard = () => {
                 </motion.div>
               ) : (
                 <motion.div key="alloc" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="w-full h-[350px] flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height="100%">
+                  {/* 🔴 FIX: minWidth={1} minHeight={1} applied here as well */}
+                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                     <PieChart>
                       <Pie data={allocationData} cx="50%" cy="50%" innerRadius={100} outerRadius={140} paddingAngle={5} dataKey="value" stroke="none" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
                         {allocationData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
@@ -289,7 +305,7 @@ const Dashboard = () => {
             <h3 className="font-bold text-white flex items-center gap-2 text-lg"><Zap size={20} className="text-amber-500"/> Global Ledger Stream</h3>
             <span className="flex h-3 w-3 relative"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span></span>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 relative z-10 space-y-3 pb-10">
             {liveFeed.map((item, index) => (
               <motion.div key={`${item.time}-${index}`} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }} className="bg-black border border-zinc-800 hover:border-zinc-700 transition-colors rounded-xl p-4 flex flex-col gap-2 shadow-sm">
@@ -312,13 +328,13 @@ const Dashboard = () => {
             <h3 className="font-bold text-white text-xl flex items-center gap-2"><WalletIcon size={20} className="text-emerald-500"/> Transaction History</h3>
             <p className="text-sm text-zinc-500 mt-1">Immutable ledger records from the smart contract.</p>
           </div>
-          
+
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4" />
               <input type="text" placeholder="Search Hash or ID..." value={searchTerm} onChange={(e) => {setSearchTerm(e.target.value); setCurrentPage(1);}} className="bg-black border border-zinc-800 text-sm text-white rounded-xl pl-9 pr-4 py-2 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all w-full sm:w-64" />
             </div>
-            
+
             <div className="relative">
               <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4" />
               <select value={filterStatus} onChange={(e) => {setFilterStatus(e.target.value); setCurrentPage(1);}} className="bg-black border border-zinc-800 text-sm text-white rounded-xl pl-9 pr-8 py-2 focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer">
@@ -327,7 +343,7 @@ const Dashboard = () => {
                 <option value="Pending">Pending</option>
               </select>
             </div>
-            
+
             <button onClick={handleExportCSV} className="bg-zinc-900 hover:bg-zinc-800 text-white border border-zinc-800 p-2 rounded-xl transition-colors" title="Export CSV"><Download size={18} /></button>
           </div>
         </div>
@@ -392,7 +408,7 @@ const Dashboard = () => {
       </div>
 
       <TransactionModal tx={selectedTx} onClose={() => setSelectedTx(null)} />
-      
+
     </motion.div>
   );
 };
