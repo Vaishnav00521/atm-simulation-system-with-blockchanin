@@ -1,31 +1,38 @@
-import axios from 'axios';
+// Native Fetch implementation to replace Axios
+let API_BASE_URL = import.meta.env.VITE_API_URL || 'https://global-atm-backend.onrender.com';
 
-// 🔴 1. Smart Routing: Uses Render in production, localhost in development
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+if (window.location.protocol === 'https:' && (API_BASE_URL.includes('localhost') || API_BASE_URL.startsWith('http://'))) {
+  API_BASE_URL = 'https://global-atm-backend.onrender.com';
+}
 
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
+const customFetch = async (endpoint, options = {}) => {
+  const token = localStorage.getItem('fintech_jwt');
+
+  const headers = {
     'Content-Type': 'application/json',
-  },
-});
+    ...(token && { Authorization: `Bearer ${token}` }),
+    ...options.headers,
+  };
 
-// 🔴 2. The Security Interceptor
-// This intercepts EVERY request your app makes and silently attaches your JWT token.
-// This proves to the Spring Boot backend that you are securely logged in.
-api.interceptors.request.use(
-  (config) => {
-    // We saved this exactly as 'fintech_jwt' in the Login.jsx file!
-    const token = localStorage.getItem('fintech_jwt');
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
 
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
+  // Automatically parse JSON to mimic Axios behavior
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw { response: { status: response.status, data } };
   }
-);
+
+  return { data };
+};
+
+// Expose standard methods so you don't have to rewrite your component code
+const api = {
+  get: (url, config) => customFetch(url, { method: 'GET', ...config }),
+  post: (url, data, config) => customFetch(url, { method: 'POST', body: JSON.stringify(data), ...config }),
+};
 
 export default api;
