@@ -1,0 +1,26 @@
+{
+  "buildCommand": "cd atm-global-frontend && npm install && npm run build",
+  "outputDirectory": "atm-global-frontend/dist",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/assets/(.*)",
+      "destination": "atm-global-frontend/dist/assets/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "atm-global-frontend/dist/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" },
+        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains; preload" }
+      ]
+    }
+  ]
+}

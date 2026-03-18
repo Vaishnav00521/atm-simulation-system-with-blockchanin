@@ -4,7 +4,13 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>atm-global-frontend</title>
+    <title>Global ATM | Institutional Dashboard</title>
+    <!-- 🛡️ GLOBAL SHIM: Fixes "global is not defined" White Screen in production -->
+    <script>
+      if (typeof global === 'undefined') {
+        window.global = window;
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

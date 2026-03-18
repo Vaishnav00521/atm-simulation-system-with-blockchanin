@@ -1,0 +1,13 @@
+{
+  "name": "global-atm-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "atm-global-frontend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=atm-global-frontend",
+    "build": "npm run build --workspace=atm-global-frontend",
+    "install": "npm install --workspace=atm-global-frontend"
+  }
+}
