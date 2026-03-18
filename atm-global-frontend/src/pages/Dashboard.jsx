@@ -136,24 +136,27 @@ const Dashboard = () => {
     fetchMetrics();
   }, []);
 
-  // 🔴 NUCLEAR FIX 3: Force Production HTTPS if on Vercel to stop the SecurityError Crash
+  // 🔴 PERMANENT FIX 2: Protocol-Aware URL handling for SockJS to prevent SecurityError on HTTPS
   useEffect(() => {
     let client;
 
     try {
-      // 1. HARDENED URL LOGIC: Force HTTPS/WSS in production
+      // 1. DYNAMIC URL LOGIC: Automatically match page protocol (http/https)
       let rawUrl = import.meta.env.VITE_API_URL || 'https://global-atm-backend.onrender.com';
       
-      // Ensure absolute security: if the page is HTTPS, the API must be HTTPS
-      if (window.location.protocol === 'https:' && rawUrl.startsWith('http://')) {
-        rawUrl = rawUrl.replace('http://', 'https://');
-      }
+      // Remove any existing protocol to re-attach correctly
+      const cleanUrl = rawUrl.replace(/^https?:\/\//, '');
+      const protocol = window.location.protocol === 'https:' ? 'https://' : 'http://';
+      const socketUrl = `${protocol}${cleanUrl}/ws-fintech`;
+
+      console.log("Initializing Secure Socket:", socketUrl);
 
       client = new Client({
-        webSocketFactory: () => new SockJS(`${rawUrl}/ws-fintech`, null, {
+        webSocketFactory: () => new SockJS(socketUrl, null, {
           transports: ['websocket', 'xhr-streaming', 'xhr-polling']
         }),
         onConnect: () => {
+          console.log("Socket Connected Successfully");
           client.subscribe('/topic/live-feed', (message) => {
             try {
               const newFeedData = JSON.parse(message.body);

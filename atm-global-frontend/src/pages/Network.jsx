@@ -99,8 +99,8 @@ const Network = () => {
         {/* Latency Chart */}
         <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-6 shadow-xl flex flex-col min-h-[400px]">
           <h3 className="font-bold text-white text-xl mb-6 flex items-center gap-2"><Activity size={20} className="text-blue-500"/> Average Ping / Latency</h3>
-          <div className="flex-1 w-full h-full">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="flex-1 w-full h-full min-w-0" style={{ position: 'relative', height: 300 }}>
+            <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={latencyData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorMs" x1="0" y1="0" x2="0" y2="1">

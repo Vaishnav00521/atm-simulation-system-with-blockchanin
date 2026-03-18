@@ -1,9 +1,12 @@
-// Native Fetch implementation to replace Axios
+// Protocol-aware URL logic to prevent Mixed Content errors
 let API_BASE_URL = import.meta.env.VITE_API_URL || 'https://global-atm-backend.onrender.com';
 
-if (window.location.protocol === 'https:' && (API_BASE_URL.includes('localhost') || API_BASE_URL.startsWith('http://'))) {
-  API_BASE_URL = 'https://global-atm-backend.onrender.com';
-}
+// Ensure protocol matches the current page (HTTPS vs HTTP)
+const protocol = window.location.protocol === 'https:' ? 'https://' : 'http://';
+const cleanBase = API_BASE_URL.replace(/^https?:\/\//, '');
+API_BASE_URL = `${protocol}${cleanBase}`;
+
+console.log("Using API Base:", API_BASE_URL);
 
 const customFetch = async (endpoint, options = {}) => {
   const token = localStorage.getItem('fintech_jwt');
