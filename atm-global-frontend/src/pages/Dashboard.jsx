@@ -56,13 +56,11 @@ const StatCard = ({ title, value, trend, up, icon, sparklineData }) => (
     <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest relative z-10">{title}</p>
     <div className="flex items-end justify-between mt-1 relative z-10">
       <h3 className="text-3xl font-black text-white">{value}</h3>
-      {/* 🔴 FIX: Added explicit style and minWidth/minHeight to kill the Recharts -1 warning */}
-      <div style={{ width: '64px', height: '32px' }}>
-        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-          <LineChart data={sparklineData}>
-            <Line type="monotone" dataKey="val" stroke={up ? "#10b981" : "#ef4444"} strokeWidth={2} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
+      {/* 🔴 NUCLEAR FIX 1: Removed ResponsiveContainer entirely for tiny charts to kill the -1 error */}
+      <div style={{ width: 64, height: 32 }}>
+        <LineChart width={64} height={32} data={sparklineData}>
+          <Line type="monotone" dataKey="val" stroke={up ? "#10b981" : "#ef4444"} strokeWidth={2} dot={false} />
+        </LineChart>
       </div>
     </div>
   </div>
@@ -122,49 +120,50 @@ const Dashboard = () => {
     activeContracts: 1204
   });
 
-  // Fetch real data from Spring Boot API
+  // 🔴 NUCLEAR FIX 2: Manually grab JWT and inject it to bypass the 403 Forbidden error
   useEffect(() => {
     const fetchMetrics = async () => {
       try {
-        const response = await api.get('/api/dashboard/metrics');
+        const token = localStorage.getItem('fintech_jwt');
+        const response = await api.get('/api/dashboard/metrics', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
         if(response.data) setMetrics(response.data);
       } catch (error) {
-        console.warn("API Note: Could not fetch live metrics. Proceeding with defaults.", error.message);
+        console.warn("API 403 / Axios Error. Fallback to default metrics.", error.message);
       }
     };
     fetchMetrics();
   }, []);
 
-  // 🔴 FIX: Crash-proof WebSocket connection with auto HTTPS upgrade
+  // 🔴 NUCLEAR FIX 3: Force Production HTTPS if on Vercel to stop the SecurityError Crash
   useEffect(() => {
     let client;
 
     try {
-      let API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      let rawUrl = import.meta.env.VITE_API_URL || 'https://global-atm-backend.onrender.com';
 
-      // Security check: If Vercel is HTTPS, force the WebSocket to use HTTPS to prevent SecurityError
-      if (window.location.protocol === 'https:' && API_BASE_URL.startsWith('http://')) {
-        API_BASE_URL = API_BASE_URL.replace('http://', 'https://');
+      // If we are on Vercel (https), absolutely forbid localhost or http
+      if (window.location.protocol === 'https:') {
+        if (rawUrl.includes('localhost') || rawUrl.startsWith('http://localhost')) {
+          rawUrl = 'https://global-atm-backend.onrender.com';
+        } else if (rawUrl.startsWith('http://')) {
+          rawUrl = rawUrl.replace('http://', 'https://');
+        }
       }
 
       client = new Client({
-        webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws-fintech`),
+        webSocketFactory: () => new SockJS(`${rawUrl}/ws-fintech`),
         onConnect: () => {
           client.subscribe('/topic/live-feed', (message) => {
             try {
               const newFeedData = JSON.parse(message.body);
               setLiveFeed(prev => [newFeedData, ...prev].slice(0, 12));
-            } catch (e) {
-              console.warn("Payload parse error safely caught.");
-            }
+            } catch (e) {}
           });
         },
-        onStompError: (frame) => {
-          console.warn('Broker warning safely caught: ' + frame.headers['message']);
-        },
-        onWebSocketError: (event) => {
-          console.warn('WebSocket connection gracefully failed. App will not crash.');
-        }
+        onStompError: (frame) => console.warn('Broker warning caught safely.'),
+        onWebSocketError: (event) => console.warn('WebSocket connection gracefully failed. UI will not crash.')
       });
 
       client.activate();
@@ -265,9 +264,9 @@ const Dashboard = () => {
           <div className="flex-1 w-full h-full relative">
             <AnimatePresence mode="wait">
               {activeTab === 'liquidity' ? (
-                <motion.div key="liq" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="w-full h-[350px]">
-                  {/* 🔴 FIX: minWidth={1} minHeight={1} applied here to stop Recharts crash */}
-                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                {/* 🔴 NUCLEAR FIX 1 pt. 2: Forced absolute pixel heights on main charts */}
+                <motion.div key="liq" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="w-full" style={{ height: 350, minHeight: 350, position: 'relative' }}>
+                  <ResponsiveContainer width="100%" height={350}>
                     <ComposedChart data={tradingData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
@@ -283,9 +282,8 @@ const Dashboard = () => {
                   </ResponsiveContainer>
                 </motion.div>
               ) : (
-                <motion.div key="alloc" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="w-full h-[350px] flex items-center justify-center">
-                  {/* 🔴 FIX: minWidth={1} minHeight={1} applied here as well */}
-                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                <motion.div key="alloc" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="w-full flex items-center justify-center" style={{ height: 350, minHeight: 350 }}>
+                  <ResponsiveContainer width="100%" height={350}>
                     <PieChart>
                       <Pie data={allocationData} cx="50%" cy="50%" innerRadius={100} outerRadius={140} paddingAngle={5} dataKey="value" stroke="none" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
                         {allocationData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
