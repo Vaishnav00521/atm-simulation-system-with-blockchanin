@@ -54,8 +54,12 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // 🔴 PERMANENT FIX 2: Wildcard origin patterns. Accepts ALL Vercel preview and production links.
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        // Explicitly allow the provided Vercel frontend URL
+        configuration.setAllowedOrigins(List.of(
+            "https://atm-simulation-system-with-blockcha.vercel.app",
+            "http://localhost:5173",
+            "http://localhost:3000"
+        ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type", "X-Requested-With"));
         configuration.setExposedHeaders(List.of("Authorization"));
