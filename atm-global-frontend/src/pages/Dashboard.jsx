@@ -249,11 +249,12 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="flex-1 w-full h-full relative min-w-0" style={{ minHeight: 350 }}>
+          {/* 🛡️ PERMANENT FIX: Strict pixel dimensions prevent Recharts -1 crash in production */}
+          <div style={{ width: '100%', height: 350, minHeight: 350, position: 'relative' }}>
             <AnimatePresence mode="wait">
               {activeTab === 'liquidity' ? (
-                <motion.div key="liq" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="w-full h-full" style={{ position: 'relative' }}>
-                  <ResponsiveContainer width="99%" height={350}>
+                <motion.div key="liq" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} style={{ width: '100%', height: 350, position: 'relative' }}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                     <ComposedChart data={tradingData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
@@ -269,8 +270,8 @@ const Dashboard = () => {
                   </ResponsiveContainer>
                 </motion.div>
               ) : (
-                <motion.div key="alloc" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="w-full h-full flex items-center justify-center">
-                  <ResponsiveContainer width="99%" height={350}>
+                <motion.div key="alloc" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} style={{ width: '100%', height: 350, position: 'relative' }} className="flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                     <PieChart>
                       <Pie data={allocationData} cx="50%" cy="50%" innerRadius={100} outerRadius={140} paddingAngle={5} dataKey="value" stroke="none" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
                         {allocationData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}

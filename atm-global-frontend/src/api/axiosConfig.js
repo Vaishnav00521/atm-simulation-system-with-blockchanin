@@ -6,12 +6,23 @@ const isLocal = window.location.hostname === 'localhost' || window.location.host
 // Default to local backend if on localhost, otherwise use the public Render URL
 let API_BASE_URL = import.meta.env.VITE_API_URL || (isLocal ? 'http://localhost:8080' : 'https://global-atm-backend.onrender.com');
 
-// Ensure protocol matches for remote deployments to prevent Mixed Content errors
-if (!isLocal && window.location.protocol === 'https:' && API_BASE_URL.startsWith('http://')) {
+// 🛡️ PERMANENT FIX: Force HTTPS when the browser is on a secure origin (Vercel/Netlify)
+// This prevents the fatal "Mixed Content" SecurityError that kills WebSocket & API calls
+if (window.location.protocol === 'https:') {
+  // Overwrite localhost fallbacks that can never work in production
+  if (API_BASE_URL.includes('localhost') || API_BASE_URL.startsWith('http://localhost')) {
+    API_BASE_URL = 'https://global-atm-backend.onrender.com';
+  }
+  // Upgrade any remaining insecure http:// to https://
+  else if (API_BASE_URL.startsWith('http://')) {
     API_BASE_URL = API_BASE_URL.replace('http://', 'https://');
+  }
 }
 
 console.log(`[SYS] Initializing Network Layer. Target: ${API_BASE_URL}`);
+
+// Export the resolved URL so WebSocket / SockJS consumers can reuse it
+export const API_URL = API_BASE_URL;
 
 const api = axios.create({
   baseURL: API_BASE_URL,

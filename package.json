@@ -7,6 +7,8 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace=atm-global-frontend",
+    "dev:backend": "mvnw.cmd spring-boot:run",
+    "dev:frontend": "npm run dev --workspace=atm-global-frontend",
     "build": "npm run build --workspace=atm-global-frontend",
     "install": "npm install --workspace=atm-global-frontend"
   }
