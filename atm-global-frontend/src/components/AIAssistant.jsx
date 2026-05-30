@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, X, Cpu, Loader2, Sparkles, AlertTriangle } from 'lucide-react';
-import api from '../api/axiosConfig'; // 🔴 This is the magic key that fixes the error
+import api from '../api/axiosClient'; // 🔴 This is the magic key that fixes the error
 
 const AIAssistant = () => {
   const [isOpen, setIsOpen] = useState(false);

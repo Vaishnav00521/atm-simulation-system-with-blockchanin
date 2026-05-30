@@ -6,7 +6,7 @@ import {
   Send, Copy, ExternalLink, AlertTriangle, Settings, RefreshCcw, Info, X
 } from 'lucide-react';
 import { ethers } from 'ethers';
-import api from '../api/axiosConfig';
+import api from '../api/axiosClient';
 
 // --- CONSTANTS ---
 const ETH_PRICE = 2890.50;

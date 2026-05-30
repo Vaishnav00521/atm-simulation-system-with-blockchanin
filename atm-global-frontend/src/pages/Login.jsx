@@ -4,7 +4,7 @@ import {
   Lock, User, ShieldCheck, Cpu, ArrowRight, Eye, EyeOff, 
   Terminal, AlertTriangle, UserPlus, LogIn
 } from 'lucide-react';
-import api from '../api/axiosConfig'; // 🔴 Shared API instance
+import api from '../api/axiosClient'; // 🔴 Shared API instance
 import { useNavigate } from 'react-router-dom';
 
 const bootSequence = [

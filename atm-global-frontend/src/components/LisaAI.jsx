@@ -5,7 +5,7 @@ import {
   Mic, MicOff, Copy, Check, ChevronDown, Globe,
   MessageSquare, Zap, Wallet, Activity, FileText, Settings
 } from 'lucide-react';
-import api from '../api/axiosConfig';
+import api from '../api/axiosClient';
 
 // Language configuration
 const LANGUAGES = {

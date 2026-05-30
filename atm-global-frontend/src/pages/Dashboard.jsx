@@ -9,8 +9,8 @@ import {
   ComposedChart, Area, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, LineChart, Line 
 } from 'recharts';
-import api, { API_URL } from '../api/axiosConfig';
-import { Client } from '@stomp/stompjs';
+import api, { API_URL } from '../api/axiosClient';
+import { useLiveFeed } from '../hooks/useLiveFeed';
 
 // ==========================================
 // 1. MOCK DATA & CONSTANTS
@@ -114,9 +114,7 @@ const TransactionModal = ({ tx, onClose }) => {
 // 3. MAIN DASHBOARD COMPONENT
 // ==========================================
 const Dashboard = () => {
-  const [liveFeed, setLiveFeed] = useState([
-    { time: new Date().toLocaleTimeString(), node: 'Sys-Core', action: 'Neural link established. Awaiting directives.' }
-  ]);
+  const liveFeed = useLiveFeed();
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState('liquidity');
   const [searchTerm, setSearchTerm] = useState('');
@@ -143,64 +141,6 @@ const Dashboard = () => {
       }
     };
     fetchMetrics();
-  }, []);
-
-  // 🛡️ PERMANENT FIX: Native WebSocket (no SockJS) + simulation fallback
-  useEffect(() => {
-    let client;
-    let simulationInterval;
-    let connected = false;
-
-    // Simulation fallback — keeps the live feed alive regardless of backend status
-    const startSimulation = () => {
-      if (simulationInterval) return;
-      simulationInterval = setInterval(() => {
-        const randomLog = SYSTEM_LOGS[Math.floor(Math.random() * SYSTEM_LOGS.length)];
-        const newNode = ["Validator-A", "Mainnet-01", "Tokyo-RPC", "Vault-Node"][Math.floor(Math.random() * 4)];
-        setLiveFeed(prev => [
-          { time: new Date().toLocaleTimeString(), node: newNode, action: randomLog },
-          ...prev
-        ].slice(0, 12));
-      }, 5000);
-    };
-
-    try {
-      // 1. Convert centralized API_URL (http/s) to native WebSocket scheme (ws/s)
-      const wsUrl = API_URL.replace(/^https:\/\//i, 'wss://').replace(/^http:\/\//i, 'ws://');
-
-      client = new Client({
-        brokerURL: `${wsUrl}/ws-fintech`,
-        reconnectDelay: 10000,
-        onConnect: () => {
-          connected = true;
-          client.subscribe('/topic/live-feed', (message) => {
-            try {
-              const newFeedData = JSON.parse(message.body);
-              setLiveFeed(prev => [newFeedData, ...prev].slice(0, 12));
-            } catch (e) { /* ignore parse errors */ }
-          });
-        },
-        onStompError: () => { if (!connected) startSimulation(); },
-        onWebSocketError: () => { if (!connected) startSimulation(); },
-        onWebSocketClose: () => { if (!connected) startSimulation(); },
-      });
-
-      client.activate();
-    } catch (err) {
-      console.warn("[WS] Connection failed, using simulation:", err.message);
-      startSimulation();
-    }
-
-    // If not connected within 4 seconds, start simulation fallback
-    const fallbackTimer = setTimeout(() => {
-      if (!connected) startSimulation();
-    }, 4000);
-
-    return () => {
-      clearTimeout(fallbackTimer);
-      if (simulationInterval) clearInterval(simulationInterval);
-      if (client && client.active) client.deactivate();
-    };
   }, []);
 
   const handleSync = () => {
