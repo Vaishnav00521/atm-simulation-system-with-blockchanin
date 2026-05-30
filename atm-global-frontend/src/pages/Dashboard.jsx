@@ -9,7 +9,9 @@ import {
   ComposedChart, Area, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, LineChart, Line 
 } from 'recharts';
-import api from '../api/axiosConfig';
+import api, { API_URL } from '../api/axiosConfig';
+import SockJS from 'sockjs-client';
+import { Client } from '@stomp/stompjs';
 
 // ==========================================
 // 1. MOCK DATA & CONSTANTS
@@ -144,19 +146,77 @@ const Dashboard = () => {
     fetchMetrics();
   }, []);
 
-  // 🛡️ PERMANENT FIX 2: Simulated Live Stream to prevent "SecurityError" on Vercel
+  // 🛡️ PERMANENT FIX 2: WebSocket connection with auto HTTPS/Secure protocol upgrade and simulation fallback
   useEffect(() => {
-    const streamInterval = setInterval(() => {
-      const randomLog = SYSTEM_LOGS[Math.floor(Math.random() * SYSTEM_LOGS.length)];
-      const newNode = ["Validator-A", "Mainnet-01", "Tokyo-RPC", "Vault-Node"][Math.floor(Math.random() * 4)];
-      
-      setLiveFeed(prev => [
-        { time: new Date().toLocaleTimeString(), node: newNode, action: randomLog },
-        ...prev
-      ].slice(0, 12));
-    }, 5000);
+    let client;
+    let streamInterval;
 
-    return () => clearInterval(streamInterval);
+    const startSimulation = () => {
+      if (streamInterval) return; // Already running
+      console.log("[SYS] Activating local live feed simulation fallback.");
+      streamInterval = setInterval(() => {
+        const randomLog = SYSTEM_LOGS[Math.floor(Math.random() * SYSTEM_LOGS.length)];
+        const newNode = ["Validator-A", "Mainnet-01", "Tokyo-RPC", "Vault-Node"][Math.floor(Math.random() * 4)];
+        
+        setLiveFeed(prev => [
+          { time: new Date().toLocaleTimeString(), node: newNode, action: randomLog },
+          ...prev
+        ].slice(0, 12));
+      }, 5000);
+    };
+
+    try {
+      // API_URL is imported from axiosConfig.js (guaranteed to use https:// on Vercel and http:// on localhost)
+      // Secure SockJS connection is automatically negotiated
+      client = new Client({
+        webSocketFactory: () => new SockJS(`${API_URL}/ws-fintech`),
+        onConnect: () => {
+          console.log("[SYS] Connected to remote ledger stream via WebSocket.");
+          client.subscribe('/topic/live-feed', (message) => {
+            try {
+              const newFeedData = JSON.parse(message.body);
+              setLiveFeed(prev => [newFeedData, ...prev].slice(0, 12));
+            } catch (e) {
+              console.warn("Payload parse error safely caught.");
+            }
+          });
+        },
+        onStompError: (frame) => {
+          console.warn('STOMP Broker warning, falling back to simulation: ' + frame.headers['message']);
+          startSimulation();
+        },
+        onWebSocketError: (event) => {
+          console.warn('WebSocket connection failed, falling back to simulation.');
+          startSimulation();
+        },
+        onDisconnect: () => {
+          console.log("[SYS] WebSocket disconnected. Activating simulation fallback.");
+          startSimulation();
+        }
+      });
+
+      client.activate();
+    } catch (err) {
+      console.warn("WebSocket client instantiation failed, falling back to simulation:", err);
+      startSimulation();
+    }
+
+    // Always start simulation fallback after 3 seconds if connection has not succeeded yet
+    const fallbackTimeout = setTimeout(() => {
+      if (!client || !client.connected) {
+        startSimulation();
+      }
+    }, 3000);
+
+    return () => {
+      clearTimeout(fallbackTimeout);
+      if (client && client.active) {
+        client.deactivate();
+      }
+      if (streamInterval) {
+        clearInterval(streamInterval);
+      }
+    };
   }, []);
 
   const handleSync = () => {
@@ -254,7 +314,7 @@ const Dashboard = () => {
             <AnimatePresence mode="wait">
               {activeTab === 'liquidity' ? (
                 <motion.div key="liq" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} style={{ width: '100%', height: 350, position: 'relative' }}>
-                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <ComposedChart data={tradingData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
@@ -271,7 +331,7 @@ const Dashboard = () => {
                 </motion.div>
               ) : (
                 <motion.div key="alloc" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} style={{ width: '100%', height: 350, position: 'relative' }} className="flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <PieChart>
                       <Pie data={allocationData} cx="50%" cy="50%" innerRadius={100} outerRadius={140} paddingAngle={5} dataKey="value" stroke="none" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
                         {allocationData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}

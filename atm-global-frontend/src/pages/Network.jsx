@@ -101,7 +101,7 @@ const Network = () => {
           <h3 className="font-bold text-white text-xl mb-6 flex items-center gap-2"><Activity size={20} className="text-blue-500"/> Average Ping / Latency</h3>
           {/* 🛡️ PERMANENT FIX: Strict pixel dimensions prevent Recharts -1 crash in production */}
           <div style={{ width: '100%', height: 300, minHeight: 300, position: 'relative' }}>
-            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <AreaChart data={latencyData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorMs" x1="0" y1="0" x2="0" y2="1">
