@@ -238,8 +238,8 @@ const Dashboard = () => {
             <AnimatePresence mode="wait">
               {activeTab === 'liquidity' ? (
                 <motion.div key="liq" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} style={{ width: '100%', height: 350, position: 'relative' }}>
-                  <ResponsiveContainer width="100%" height={350} minWidth={1} minHeight={1}>
-                    <ComposedChart data={tradingData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                  <div style={{ width: '100%', overflowX: 'auto' }}>
+                    <ComposedChart width={800} height={350} data={tradingData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
                       </defs>
@@ -251,18 +251,18 @@ const Dashboard = () => {
                       <Bar yAxisId="right" dataKey="volume" fill="#27272a" radius={[4, 4, 0, 0]} maxBarSize={40} />
                       <Area yAxisId="left" type="monotone" dataKey="price" stroke="#10b981" strokeWidth={3} fill="url(#colorPrice)" activeDot={{ r: 6, fill: '#10b981', stroke: '#000', strokeWidth: 2 }} />
                     </ComposedChart>
-                  </ResponsiveContainer>
+                  </div>
                 </motion.div>
               ) : (
                 <motion.div key="alloc" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} style={{ width: '100%', height: 350, position: 'relative' }} className="flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height={350} minWidth={1} minHeight={1}>
-                    <PieChart>
+                  <div>
+                    <PieChart width={400} height={350}>
                       <Pie data={allocationData} cx="50%" cy="50%" innerRadius={100} outerRadius={140} paddingAngle={5} dataKey="value" stroke="none" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
                         {allocationData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                       </Pie>
                       <Tooltip contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '12px' }} itemStyle={{ color: '#fff' }} />
                     </PieChart>
-                  </ResponsiveContainer>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

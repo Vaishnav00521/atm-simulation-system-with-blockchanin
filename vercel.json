@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd atm-global-frontend && npm install && npm run build",
+  "buildCommand": "cd atm-global-frontend && rm -f package-lock.json && npm install && npm run build",
   "outputDirectory": "atm-global-frontend/dist",
   "rewrites": [
     {
