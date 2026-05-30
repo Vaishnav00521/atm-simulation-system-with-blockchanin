@@ -48,9 +48,13 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     console.warn(`[API ERROR] ${error.config?.url}:`, error.message);
-    if (error.response?.status === 403) {
-      // Possible expired token or unauthorized access
-      console.error("403 Forbidden: Potential JWT expiration or CORS issue.");
+    if (error.response?.status === 403 || error.response?.status === 401) {
+      console.warn("[AUTH] Session expired or invalid. Evicting credentials.");
+      localStorage.removeItem('fintech_jwt');
+      localStorage.removeItem('fintech_username');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
