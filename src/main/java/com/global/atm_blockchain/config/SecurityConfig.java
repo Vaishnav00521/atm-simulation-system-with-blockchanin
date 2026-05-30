@@ -37,6 +37,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 🔴 PERMANENT FIX 1: Allow browser preflight checks to pass without a token
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/", "/health").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/ws-fintech/**").permitAll()
                         .requestMatchers("/error").permitAll()
