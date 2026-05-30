@@ -4,12 +4,8 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/assets/(.*)",
-      "destination": "atm-global-frontend/dist/assets/$1"
-    },
-    {
       "source": "/(.*)",
-      "destination": "atm-global-frontend/dist/index.html"
+      "destination": "/index.html"
     }
   ],
   "headers": [
