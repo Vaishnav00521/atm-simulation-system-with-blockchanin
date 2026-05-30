@@ -1,7 +1,6 @@
 {
   "buildCommand": "cd atm-global-frontend && npm install && npm run build",
   "outputDirectory": "atm-global-frontend/dist",
-  "framework": "vite",
   "rewrites": [
     {
       "source": "/(.*)",
@@ -9,6 +8,12 @@
     }
   ],
   "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [

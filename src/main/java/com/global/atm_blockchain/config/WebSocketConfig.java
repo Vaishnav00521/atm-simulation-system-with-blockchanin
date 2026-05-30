@@ -18,8 +18,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        // SockJS endpoint for localhost/HTTP development
         registry.addEndpoint("/ws-fintech")
-                .setAllowedOriginPatterns("*") // 🔴 Ensures React on Vercel can connect
+                .setAllowedOriginPatterns("*")
                 .withSockJS();
+
+        // Raw WebSocket endpoint for production HTTPS (Vercel/Render)
+        registry.addEndpoint("/ws-fintech")
+                .setAllowedOriginPatterns("*");
     }
 }

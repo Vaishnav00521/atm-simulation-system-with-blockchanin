@@ -4,24 +4,11 @@ import axios from 'axios';
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
 // Default to local backend if on localhost, otherwise use the public Render URL
-let API_BASE_URL = import.meta.env.VITE_API_URL || (isLocal ? 'http://localhost:8080' : 'https://global-atm-backend.onrender.com');
-
-// 🛡️ PERMANENT FIX: Force HTTPS when the browser is on a secure origin (Vercel/Netlify)
-// This prevents the fatal "Mixed Content" SecurityError that kills WebSocket & API calls
-if (window.location.protocol === 'https:') {
-  // Overwrite localhost fallbacks that can never work in production
-  if (API_BASE_URL.includes('localhost') || API_BASE_URL.startsWith('http://localhost')) {
-    API_BASE_URL = 'https://global-atm-backend.onrender.com';
-  }
-  // Upgrade any remaining insecure http:// to https://
-  else if (API_BASE_URL.startsWith('http://')) {
-    API_BASE_URL = API_BASE_URL.replace('http://', 'https://');
-  }
-}
+const API_BASE_URL = isLocal ? 'http://localhost:8080' : 'https://global-atm-backend.onrender.com';
 
 console.log(`[SYS] Initializing Network Layer. Target: ${API_BASE_URL}`);
 
-// Export the resolved URL so WebSocket / SockJS consumers can reuse it
+// Export the resolved URL so WebSocket consumers can reuse it
 export const API_URL = API_BASE_URL;
 
 const api = axios.create({
@@ -43,12 +30,16 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Optional: Handle common errors globally
+// Handle common errors globally
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.warn(`[API ERROR] ${error.config?.url}:`, error.message);
-    if (error.response?.status === 403 || error.response?.status === 401) {
+    const status = error.response?.status;
+    const url = error.config?.url || '';
+
+    // Only evict session for non-auth endpoints getting 401/403
+    // (auth endpoints like /api/auth/login SHOULD return 401 for bad credentials — that's not a session issue)
+    if ((status === 403 || status === 401) && !url.includes('/api/auth/')) {
       console.warn("[AUTH] Session expired or invalid. Evicting credentials.");
       localStorage.removeItem('fintech_jwt');
       localStorage.removeItem('fintech_username');
