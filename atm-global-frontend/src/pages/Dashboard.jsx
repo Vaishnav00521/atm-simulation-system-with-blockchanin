@@ -165,12 +165,8 @@ const Dashboard = () => {
     };
 
     try {
-      // 1. Determine the backend base URL
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      let baseUrl = isLocal ? 'http://localhost:8080' : 'https://global-atm-backend.onrender.com';
-
-      // 2. Convert http(s) to ws(s) for native WebSocket
-      const wsUrl = baseUrl.replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://');
+      // 1. Convert centralized API_URL (http/s) to native WebSocket scheme (ws/s)
+      const wsUrl = API_URL.replace(/^https:\/\//i, 'wss://').replace(/^http:\/\//i, 'ws://');
 
       client = new Client({
         brokerURL: `${wsUrl}/ws-fintech`,
