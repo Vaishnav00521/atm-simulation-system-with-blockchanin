@@ -5,6 +5,8 @@ import com.global.atm_blockchain.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -13,6 +15,9 @@ public class LisaAgentService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private AIAgentService aiAgentService;
 
     public String processCommand(String command, String username, String language) {
         String lowerCommand = command.toLowerCase();
@@ -37,7 +42,17 @@ public class LisaAgentService {
             return executeTransaction(lowerCommand, user);
         }
 
-        return "I am Lisa, your AI Router. I can process fiat transfers, execute ETH swaps, or retrieve vault analytics. What is your directive?";
+        // --- FALLBACK: GEMINI DIRECT-TO-INFERENCE ---
+        try {
+            Map<String, Object> currentMetrics = new HashMap<>();
+            currentMetrics.put("fiatBalance", user.getFiatBalance());
+            currentMetrics.put("cryptoBalance", user.getCryptoBalance());
+            
+            String promptWithLang = command + " (Please reply in language code: " + language + ")";
+            return aiAgentService.consultAgent(promptWithLang, currentMetrics);
+        } catch (Exception e) {
+            return "My neural core is currently offline. Error: " + e.getMessage();
+        }
     }
 
     private String executeTransaction(String command, User user) {

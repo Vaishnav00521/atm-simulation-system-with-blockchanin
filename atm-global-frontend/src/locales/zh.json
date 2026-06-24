@@ -1,0 +1,49 @@
+{
+  "common": { "save": "保存", "cancel": "取消", "logout": "终止会话", "loading": "加载中..." },
+  "sidebar": {
+    "terminal": "交易终端",
+    "vault": "Web3 金库",
+    "nodes": "节点状态",
+    "contracts": "智能合约",
+    "activity": "账户活动"
+  },
+  "login": {
+    "title": "访问终端",
+    "subtitle": "机构级安全认证",
+    "username": "用户ID",
+    "password": "访问密钥",
+    "submit": "认证登录",
+    "passkey": "使用通行密钥登录"
+  },
+  "dashboard": {
+    "title": "全球交易终端",
+    "fiatBalance": "法币储备",
+    "cryptoBalance": "加密资产",
+    "sync": "同步账本",
+    "export": "导出报告"
+  },
+  "wallet": {
+    "title": "机构 Web3 金库",
+    "swap": "量子兑换",
+    "bridge": "跨链桥接",
+    "comingSoon": "即将推出"
+  },
+  "settings": {
+    "title": "系统设置",
+    "profile": "个人资料",
+    "security": "安全 & 多因素认证",
+    "notifications": "通知",
+    "antiPhishing": "反网络钓鱼短语",
+    "antiPhishingDesc": "设置每页显示的秘密词。如果缺失，说明您在假冒网站上。",
+    "phrasePlaceholder": "例如：紫龙2026",
+    "phraseSaved": "短语已保存并激活。",
+    "phraseFailed": "保存失败，请重试。"
+  },
+  "activity": {
+    "title": "账户活动",
+    "total": "条事件记录",
+    "refresh": "刷新",
+    "search": "搜索事件、详情、IP...",
+    "all": "全部"
+  }
+}

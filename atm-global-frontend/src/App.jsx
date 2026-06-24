@@ -1,10 +1,11 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { 
   LogOut, LayoutDashboard, Wallet as WalletIcon, Activity, 
-  Settings as SettingsIcon, Menu, X, ShieldCheck, FileText
+  Settings as SettingsIcon, Menu, X, ShieldCheck, FileText, Eye, EyeOff, Globe, ClipboardList
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import './i18n';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Wallet from './pages/Wallet';
@@ -12,6 +13,12 @@ import Network from './pages/Network';
 import Contracts from './pages/Contracts';
 import Settings from './pages/Settings';
 import LisaAI from './components/LisaAI';
+import AntiPhishingBanner from './components/AntiPhishingBanner';
+import IdleCountdownModal from './components/IdleCountdownModal';
+import AccountActivity from './pages/AccountActivity';
+import ScheduledTransactions from './pages/ScheduledTransactions';
+import LanguageSelector from './components/LanguageSelector';
+import { useIdleTimeout } from './hooks/useIdleTimeout';
 
 const GlobalContext = createContext();
 export const useGlobal = () => useContext(GlobalContext);
@@ -23,12 +30,18 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
+  const { privacyMode, setPrivacyMode } = useGlobal();
   const location = useLocation();
   const currentUsername = localStorage.getItem('fintech_username') || 'Guest';
   
+  const displayUsername = privacyMode && currentUsername.length > 2 
+    ? `${currentUsername[0]}********${currentUsername[currentUsername.length - 1]}`
+    : currentUsername;
+  
   const handleLogout = () => {
     localStorage.removeItem('fintech_jwt');
-    localStorage.removeItem('fintech_username'); 
+    localStorage.removeItem('fintech_username');
+    localStorage.removeItem('anti_phishing_phrase');
     window.location.href = '/login';
   };
 
@@ -39,6 +52,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { path: '/wallet', icon: <WalletIcon size={20} />, label: 'Web3 Vault' },
     { path: '/network', icon: <Activity size={20} />, label: 'Node Status' },
     { path: '/contracts', icon: <FileText size={20} />, label: 'Smart Contracts' },
+    { path: '/schedules', icon: <Globe size={20} />, label: 'Liquidity Routes' },
+    { path: '/activity', icon: <ClipboardList size={20} />, label: 'Account Activity' },
   ];
 
   return (
@@ -65,13 +80,26 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           ))}
         </div>
 
+        {/* Anti-Phishing Banner */}
+        <AntiPhishingBanner />
+
+        {/* Language Selector */}
+        <LanguageSelector />
+
         <div className="p-6 border-t border-zinc-800 bg-black/50 space-y-3">
           <div className="flex items-center gap-3 mb-6 p-3 bg-zinc-900 border border-zinc-800 rounded-xl">
             <div className="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center font-bold text-white uppercase shadow-inner">{currentUsername.charAt(0)}</div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-bold text-white truncate">{currentUsername}</p>
+            <div className="overflow-hidden flex-1">
+              <p className="text-sm font-bold text-white truncate">{displayUsername}</p>
               <p className="text-xs text-zinc-500 font-mono">Node Operator</p>
             </div>
+            <button 
+              onClick={() => setPrivacyMode(!privacyMode)} 
+              className={`p-1.5 rounded-lg transition-colors ${privacyMode ? 'bg-emerald-500/20 text-emerald-500' : 'bg-black/50 border border-zinc-800 text-zinc-400 hover:text-white'}`} 
+              title="Toggle Privacy Mode"
+            >
+              {privacyMode ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
           </div>
 
           {/* 🔴 Now a functional link */}
@@ -88,9 +116,30 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 const App = () => {
   const [aiChatOpen, setAiChatOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [privacyMode, setPrivacyMode] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('fintech_jwt'));
+
+  const { showCountdown, countdown, resetTimer } = useIdleTimeout(isAuthenticated);
+
+  // Update auth state on mount and when local storage might change
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setIsAuthenticated(!!localStorage.getItem('fintech_jwt'));
+    };
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also set up an interval as a fallback since same-window localStorage changes 
+    // don't always fire the 'storage' event.
+    const interval = setInterval(handleStorageChange, 1000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
-    <GlobalContext.Provider value={{ aiChatOpen, setAiChatOpen }}>
+    <GlobalContext.Provider value={{ aiChatOpen, setAiChatOpen, isAuthenticated, setIsAuthenticated, privacyMode, setPrivacyMode }}>
       <Router>
         <div className="min-h-screen bg-black text-zinc-200 selection:bg-emerald-500/30 font-sans flex overflow-hidden">
           <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
@@ -106,20 +155,26 @@ const App = () => {
                 <Route path="/login" element={<Login />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
-                
-                {/* 🔴 The New Pages */}
                 <Route path="/network" element={<ProtectedRoute><Network /></ProtectedRoute>} />
                 <Route path="/contracts" element={<ProtectedRoute><Contracts /></ProtectedRoute>} />
+                <Route path="/schedules" element={<ProtectedRoute><ScheduledTransactions /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                
+                <Route path="/activity" element={<ProtectedRoute><AccountActivity /></ProtectedRoute>} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </main>
           </div>
 
-          {localStorage.getItem('fintech_jwt') && <LisaAI />}
+          {isAuthenticated && <LisaAI />}
         </div>
       </Router>
+
+      {/* Idle Timeout Auto-Eject */}
+      <IdleCountdownModal
+        show={showCountdown}
+        countdown={countdown}
+        onStayLoggedIn={resetTimer}
+      />
     </GlobalContext.Provider>
   );
 };

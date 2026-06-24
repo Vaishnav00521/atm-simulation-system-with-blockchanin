@@ -1,0 +1,49 @@
+{
+  "common": { "save": "Save", "cancel": "Cancel", "logout": "Terminate Session", "loading": "Loading..." },
+  "sidebar": {
+    "terminal": "Trading Terminal",
+    "vault": "Web3 Vault",
+    "nodes": "Node Status",
+    "contracts": "Smart Contracts",
+    "activity": "Account Activity"
+  },
+  "login": {
+    "title": "Access Terminal",
+    "subtitle": "Institutional-grade secure authentication",
+    "username": "Profile ID",
+    "password": "Access Key",
+    "submit": "Authenticate",
+    "passkey": "Login with Passkey"
+  },
+  "dashboard": {
+    "title": "Global Trading Terminal",
+    "fiatBalance": "Fiat Reserves",
+    "cryptoBalance": "Crypto Holdings",
+    "sync": "Sync Ledger",
+    "export": "Export Report"
+  },
+  "wallet": {
+    "title": "Institutional Web3 Vault",
+    "swap": "Quantum Swap",
+    "bridge": "Cross-Chain Bridge",
+    "comingSoon": "Coming Soon"
+  },
+  "settings": {
+    "title": "System Settings",
+    "profile": "Profile",
+    "security": "Security & MFA",
+    "notifications": "Notifications",
+    "antiPhishing": "Anti-Phishing Phrase",
+    "antiPhishingDesc": "Set a secret word shown on every page. If it's missing, you're on a fake site.",
+    "phrasePlaceholder": "e.g. PurpleDragon2026",
+    "phraseSaved": "Phrase saved and active.",
+    "phraseFailed": "Failed to save. Try again."
+  },
+  "activity": {
+    "title": "Account Activity",
+    "total": "events recorded",
+    "refresh": "Refresh",
+    "search": "Search events, details, IP...",
+    "all": "All"
+  }
+}

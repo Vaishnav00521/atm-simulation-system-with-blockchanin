@@ -1,0 +1,49 @@
+{
+  "common": { "save": "Guardar", "cancel": "Cancelar", "logout": "Terminar Sesión", "loading": "Cargando..." },
+  "sidebar": {
+    "terminal": "Terminal de Trading",
+    "vault": "Bóveda Web3",
+    "nodes": "Estado de Nodos",
+    "contracts": "Contratos Inteligentes",
+    "activity": "Actividad de Cuenta"
+  },
+  "login": {
+    "title": "Acceso al Terminal",
+    "subtitle": "Autenticación segura de nivel institucional",
+    "username": "ID de Perfil",
+    "password": "Clave de Acceso",
+    "submit": "Autenticar",
+    "passkey": "Iniciar con Clave de Acceso"
+  },
+  "dashboard": {
+    "title": "Terminal Global de Trading",
+    "fiatBalance": "Reservas Fiat",
+    "cryptoBalance": "Tenencias Cripto",
+    "sync": "Sincronizar Libro",
+    "export": "Exportar Informe"
+  },
+  "wallet": {
+    "title": "Bóveda Web3 Institucional",
+    "swap": "Intercambio Cuántico",
+    "bridge": "Puente Cross-Chain",
+    "comingSoon": "Próximamente"
+  },
+  "settings": {
+    "title": "Configuración del Sistema",
+    "profile": "Perfil",
+    "security": "Seguridad y MFA",
+    "notifications": "Notificaciones",
+    "antiPhishing": "Frase Anti-Phishing",
+    "antiPhishingDesc": "Establece una palabra secreta mostrada en cada página.",
+    "phrasePlaceholder": "ej. DragonMorado2026",
+    "phraseSaved": "Frase guardada y activa.",
+    "phraseFailed": "Error al guardar. Inténtalo de nuevo."
+  },
+  "activity": {
+    "title": "Actividad de Cuenta",
+    "total": "eventos registrados",
+    "refresh": "Actualizar",
+    "search": "Buscar eventos, detalles, IP...",
+    "all": "Todos"
+  }
+}

@@ -14,10 +14,14 @@ public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
+    private final VelocityLimitService velocityLimitService;
 
-    public TransactionService(TransactionRepository transactionRepository, UserRepository userRepository) {
+    public TransactionService(TransactionRepository transactionRepository,
+                              UserRepository userRepository,
+                              VelocityLimitService velocityLimitService) {
         this.transactionRepository = transactionRepository;
         this.userRepository = userRepository;
+        this.velocityLimitService = velocityLimitService;
     }
 
     @Transactional
@@ -34,6 +38,9 @@ public class TransactionService {
 
     @Transactional
     public void withdraw(User user, BigDecimal amount) throws Exception {
+        // 🛡️ Velocity Limit Gate — runs BEFORE any balance mutation
+        velocityLimitService.checkWithdrawalAllowed(user.getId(), amount, "USD");
+
         if (user.getBalance().compareTo(amount) < 0) {
             throw new Exception("Insufficient Balance!");
         }

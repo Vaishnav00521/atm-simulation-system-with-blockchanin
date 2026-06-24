@@ -3,10 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Wallet as WalletIcon, ArrowRight, ArrowLeftRight, Activity, Unplug, 
   CheckCircle2, ShieldCheck, Lock, History, Coins, QrCode, 
-  Send, Copy, ExternalLink, AlertTriangle, Settings, RefreshCcw, Info, X
+  Send, Copy, ExternalLink, AlertTriangle, Settings, RefreshCcw, Info, X, Link
 } from 'lucide-react';
 import { ethers } from 'ethers';
 import api from '../api/axiosClient';
+import { useGlobal } from '../App';
+import CrossChainBridge from './CrossChainBridge';
 
 // --- CONSTANTS ---
 const ETH_PRICE = 2890.50;
@@ -53,6 +55,8 @@ const Wallet = () => {
   const [payAmount, setPayAmount] = useState('');
   const [isSwapping, setIsSwapping] = useState(false);
 
+  const { privacyMode } = useGlobal();
+
   // 🔴 FETCH LIVE DATABASE METRICS
   const [dbMetrics, setDbMetrics] = useState({ fiatBalance: 0, cryptoBalance: 0 });
 
@@ -74,12 +78,13 @@ const Wallet = () => {
 
   // 🔴 DYNAMIC ASSET LIST BASED ON DB
   const DYNAMIC_ASSETS = [
-    { symbol: 'ETH', name: 'Ethereum Vault', balance: dbMetrics.cryptoBalance.toFixed(4), price: ETH_PRICE, change: '+2.4%', color: 'text-emerald-400' },
-    { symbol: 'USDC', name: 'Fiat Reserves', balance: dbMetrics.fiatBalance.toFixed(2), price: 1.00, change: '0.0%', color: 'text-blue-400' },
-    { symbol: 'wBTC', name: 'Wrapped Bitcoin', balance: '0.1500', price: 64200.00, change: '-1.2%', color: 'text-amber-400' },
+    { symbol: 'ETH', name: 'Ethereum Vault', balance: privacyMode ? '***.****' : dbMetrics.cryptoBalance.toFixed(4), price: ETH_PRICE, change: '+2.4%', color: 'text-emerald-400' },
+    { symbol: 'USDC', name: 'Fiat Reserves', balance: privacyMode ? 'XXXX.XX' : dbMetrics.fiatBalance.toFixed(2), price: 1.00, change: '0.0%', color: 'text-blue-400' },
+    { symbol: 'wBTC', name: 'Wrapped Bitcoin', balance: privacyMode ? '***.****' : '0.1500', price: 64200.00, change: '-1.2%', color: 'text-amber-400' },
   ];
 
-  const totalPortfolioValue = ((dbMetrics.cryptoBalance * ETH_PRICE) + dbMetrics.fiatBalance + (0.15 * 64200)).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  const rawTotalValue = ((dbMetrics.cryptoBalance * ETH_PRICE) + dbMetrics.fiatBalance + (0.15 * 64200));
+  const totalPortfolioValue = privacyMode ? 'XXXX.XX' : rawTotalValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
   const connectWallet = async () => {
     if (typeof window.ethereum !== 'undefined') {
@@ -152,7 +157,7 @@ const Wallet = () => {
         {[
           { id: 'portfolio', label: 'Portfolio', icon: <WalletIcon size={16}/> },
           { id: 'swap', label: 'Quantum Swap', icon: <ArrowLeftRight size={16}/> },
-          { id: 'stake', label: 'Yield Staking', icon: <Lock size={16}/> },
+          { id: 'bridge', label: 'Cross-Chain Bridge', icon: <Link size={16}/> },
           { id: 'history', label: 'Ledger History', icon: <History size={16}/> }
         ].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-zinc-800 text-emerald-400 shadow-md' : 'text-zinc-500 hover:text-white hover:bg-zinc-900'}`}>
@@ -214,7 +219,7 @@ const Wallet = () => {
                       </div>
                       <div className="text-right">
                         <h4 className="text-white font-bold font-mono">{asset.balance}</h4>
-                        <p className="text-zinc-500 text-sm font-mono">${(asset.balance * asset.price).toLocaleString('en-US', {minimumFractionDigits: 2})} <span className={asset.change.includes('+') ? 'text-emerald-500' : 'text-amber-500'}>({asset.change})</span></p>
+                        <p className="text-zinc-500 text-sm font-mono">{privacyMode ? '$XXXX.XX' : `$${(parseFloat(asset.balance.replace(/,/g, '') || 0) * asset.price).toLocaleString('en-US', {minimumFractionDigits: 2})}`} <span className={asset.change.includes('+') ? 'text-emerald-500' : 'text-amber-500'}>({asset.change})</span></p>
                       </div>
                     </div>
                   ))}
@@ -230,8 +235,8 @@ const Wallet = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <h4 className="text-emerald-400 font-bold font-mono">{web3EthBalance} ETH</h4>
-                        <p className="text-emerald-500/70 text-sm font-mono">≈ ${(web3EthBalance * ETH_PRICE).toLocaleString('en-US')}</p>
+                        <h4 className="text-emerald-400 font-bold font-mono">{privacyMode ? '***.****' : web3EthBalance} ETH</h4>
+                        <p className="text-emerald-500/70 text-sm font-mono">≈ {privacyMode ? '$XXXX.XX' : `$${(web3EthBalance * ETH_PRICE).toLocaleString('en-US')}`}</p>
                       </div>
                     </div>
                   )}
@@ -280,30 +285,10 @@ const Wallet = () => {
             </motion.div>
           )}
           
-          {/* Stake & History tabs remain structurally the same as the previous iteration, shortened for brevity */}
-          {activeTab === 'stake' && (
-            <motion.div key="stake" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="max-w-3xl mx-auto">
-              <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 rounded-full blur-[60px] pointer-events-none" />
-                <div className="flex justify-between items-start mb-8 relative z-10">
-                  <div>
-                    <h3 className="text-xl font-bold text-white flex items-center gap-2"><Lock className="text-emerald-500"/> Institutional Yield</h3>
-                    <p className="text-zinc-500 text-sm mt-1">Lock ETH to secure the network and earn daily rewards.</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Current APR</p>
-                    <p className="text-3xl font-black text-emerald-400">4.25%</p>
-                  </div>
-                </div>
-                <div className="bg-black border border-zinc-800 rounded-2xl p-6 mb-6 text-center relative z-10">
-                  <p className="text-zinc-500 text-sm font-bold uppercase tracking-widest mb-2">Your Staked Balance</p>
-                  <h2 className="text-4xl font-black text-white">0.00 <span className="text-xl text-zinc-500">stETH</span></h2>
-                </div>
-                <button disabled={!walletAddress} className={`w-full py-4 font-extrabold text-lg rounded-2xl transition-all duration-300 relative z-10 ${walletAddress ? 'bg-zinc-100 text-black hover:bg-white shadow-[0_0_20px_rgba(255,255,255,0.1)]' : 'bg-zinc-900 text-zinc-600 cursor-not-allowed'}`}>
-                  {walletAddress ? "Stake ETH" : "Connect Wallet to Stake"}
-                </button>
-              </div>
-            </motion.div>
+          {activeTab === 'bridge' && (
+             <motion.div key="bridge" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+               <CrossChainBridge />
+             </motion.div>
           )}
 
           {activeTab === 'history' && (

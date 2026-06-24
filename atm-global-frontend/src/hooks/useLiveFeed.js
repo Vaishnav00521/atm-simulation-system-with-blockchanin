@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Client } from '@stomp/stompjs';
+import { io } from 'socket.io-client';
 import { API_URL } from '../api/axiosClient';
 
 const SYSTEM_LOGS = [
@@ -19,7 +19,7 @@ export const useLiveFeed = () => {
   ]);
 
   useEffect(() => {
-    let client;
+    let socket;
     let simulationInterval;
     let connected = false;
 
@@ -37,33 +37,49 @@ export const useLiveFeed = () => {
     };
 
     try {
-      // Convert standard http/https API_URL to ws/wss protocol for native WebSockets
-      const wsUrl = API_URL.replace(/^https:\/\//i, 'wss://').replace(/^http:\/\//i, 'ws://');
+      // Determine the Socket.IO URL.
+      // We will replace the port with 8085 for the Socket.IO server.
+      let socketUrl = API_URL || window.location.origin;
+      try {
+        const urlObj = new URL(socketUrl);
+        urlObj.port = '8085';
+        socketUrl = urlObj.toString().replace(/\/$/, "");
+      } catch (e) {
+        // Fallback if API_URL is relative
+        socketUrl = 'http://localhost:8085';
+      }
 
-      client = new Client({
-        brokerURL: `${wsUrl}/ws-fintech`,
-        reconnectDelay: 10000,
-        onConnect: () => {
-          connected = true;
-          if (simulationInterval) {
-            clearInterval(simulationInterval);
-            simulationInterval = null;
-          }
-          client.subscribe('/topic/live-feed', (message) => {
-            try {
-              const newFeedData = JSON.parse(message.body);
-              setFeed(prev => [newFeedData, ...prev].slice(0, 12));
-            } catch (e) {
-              // Ignore parsing errors
-            }
-          });
-        },
-        onStompError: () => { if (!connected) startSimulation(); },
-        onWebSocketError: () => { if (!connected) startSimulation(); },
-        onWebSocketClose: () => { if (!connected) startSimulation(); },
+      socket = io(socketUrl, {
+        reconnectionDelay: 10000,
+        transports: ['websocket', 'polling']
       });
 
-      client.activate();
+      socket.on('connect', () => {
+        connected = true;
+        if (simulationInterval) {
+          clearInterval(simulationInterval);
+          simulationInterval = null;
+        }
+      });
+
+      socket.on('live-feed', (data) => {
+        try {
+          const newFeedData = typeof data === 'string' ? JSON.parse(data) : data;
+          setFeed(prev => [newFeedData, ...prev].slice(0, 12));
+        } catch (e) {
+          // Ignore parsing errors
+        }
+      });
+
+      socket.on('connect_error', () => {
+        if (!connected) startSimulation();
+      });
+
+      socket.on('disconnect', () => {
+        connected = false;
+        startSimulation();
+      });
+
     } catch (err) {
       console.warn("[WS] Socket error. Activating mock simulation mode:", err.message);
       startSimulation();
@@ -79,7 +95,7 @@ export const useLiveFeed = () => {
     return () => {
       clearTimeout(fallbackTimer);
       if (simulationInterval) clearInterval(simulationInterval);
-      if (client && client.active) client.deactivate();
+      if (socket) socket.disconnect();
     };
   }, []);
 

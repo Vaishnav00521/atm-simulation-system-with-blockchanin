@@ -1,5 +1,6 @@
 package com.global.atm_blockchain.service.blockchain;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
@@ -13,12 +14,11 @@ import java.math.BigDecimal;
 public class BlockchainService {
 
     private final Web3j web3j;
+    private final String bankPrivateKey;
 
-    // Placeholder key
-    private final String bankPrivateKey = "0xYOUR_GANACHE_PRIVATE_KEY_HERE";
-
-    public BlockchainService(Web3j web3j) {
+    public BlockchainService(Web3j web3j, @Value("${web3j.private-key}") String bankPrivateKey) {
         this.web3j = web3j;
+        this.bankPrivateKey = bankPrivateKey;
     }
 
     public String sendCrypto(String userWalletAddress, BigDecimal amountInEth) throws Exception {

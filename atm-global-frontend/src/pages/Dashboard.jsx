@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Activity, Wallet as WalletIcon, Globe, Zap, ArrowUpRight, ArrowDownRight, 
   BarChart3, RefreshCw, Search, Filter, Download, ShieldCheck, 
-  Server, Cpu, CheckCircle2, AlertCircle, Clock, X 
+  Server, Cpu, CheckCircle2, AlertCircle, Clock, X, Lock
 } from 'lucide-react';
 import { 
   ComposedChart, Area, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -11,6 +11,12 @@ import {
 } from 'recharts';
 import api, { API_URL } from '../api/axiosClient';
 import { useLiveFeed } from '../hooks/useLiveFeed';
+import { useSecurityShield } from '../hooks/useSecurityShield';
+import { useGlobal } from '../App';
+import { usePriceFeed } from '../hooks/usePriceFeed';
+import TransactionPanel from '../components/TransactionPanel';
+import AIAgentWidget from '../components/AIAgentWidget';
+import ScrambledKeypad from '../components/ScrambledKeypad';
 
 // ==========================================
 // 1. MOCK DATA & CONSTANTS
@@ -54,7 +60,7 @@ const SYSTEM_LOGS = [
 // ==========================================
 // 2. SUB-COMPONENTS
 // ==========================================
-const StatCard = ({ title, value, trend, up, icon, sparklineData }) => (
+const StatCard = ({ title, value, trend, up, icon, sparklineData, children }) => (
   <div className="bg-zinc-950 border border-zinc-800 p-5 rounded-2xl hover:border-zinc-700 transition-all duration-300 group shadow-lg relative overflow-hidden">
     <div className="absolute -right-6 -top-6 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-colors pointer-events-none" />
     <div className="flex justify-between items-start mb-4 relative z-10">
@@ -72,10 +78,11 @@ const StatCard = ({ title, value, trend, up, icon, sparklineData }) => (
         </LineChart>
       </div>
     </div>
+    {children && <div className="mt-4 pt-4 border-t border-zinc-800">{children}</div>}
   </div>
 );
 
-const TransactionModal = ({ tx, onClose }) => {
+const TransactionModal = ({ tx, onClose, privacyMode }) => {
   if (!tx) return null;
   return (
     <AnimatePresence>
@@ -93,13 +100,13 @@ const TransactionModal = ({ tx, onClose }) => {
               </span>
             </div>
             <div className="bg-black border border-zinc-800 p-4 rounded-xl space-y-3">
-              <div className="flex justify-between"><span className="text-zinc-500 text-sm font-bold">Transaction ID</span><span className="text-white font-mono text-sm">{tx.id}</span></div>
+              <div className="flex justify-between"><span className="text-zinc-500 text-sm font-bold">Transaction ID</span><span className="text-white font-mono text-sm">{privacyMode ? `${tx.id.split('-')[0]}-***` : tx.id}</span></div>
               <div className="flex justify-between"><span className="text-zinc-500 text-sm font-bold">Asset Type</span><span className="text-white font-bold text-sm">{tx.asset}</span></div>
-              <div className="flex justify-between"><span className="text-zinc-500 text-sm font-bold">Amount</span><span className="text-emerald-400 font-bold text-lg">{tx.amount} {tx.asset}</span></div>
+              <div className="flex justify-between"><span className="text-zinc-500 text-sm font-bold">Amount</span><span className="text-emerald-400 font-bold text-lg">{privacyMode ? '***.****' : tx.amount} {tx.asset}</span></div>
               <div className="flex justify-between"><span className="text-zinc-500 text-sm font-bold">Date Executed</span><span className="text-white text-sm">{tx.date}</span></div>
               <div className="flex justify-between flex-col gap-1 mt-2 pt-2 border-t border-zinc-800">
                 <span className="text-zinc-500 text-sm font-bold">Block Hash</span>
-                <span className="text-teal-400 font-mono text-xs bg-teal-500/10 p-2 rounded-lg break-all border border-teal-500/20">{tx.hash}</span>
+                <span className="text-teal-400 font-mono text-xs bg-teal-500/10 p-2 rounded-lg break-all border border-teal-500/20">{privacyMode ? `${tx.hash.substring(0, 6)}...${tx.hash.substring(tx.hash.length - 4)}` : tx.hash}</span>
               </div>
             </div>
           </div>
@@ -114,20 +121,74 @@ const TransactionModal = ({ tx, onClose }) => {
 // 3. MAIN DASHBOARD COMPONENT
 // ==========================================
 const Dashboard = () => {
-  const liveFeed = useLiveFeed();
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState('liquidity');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedTx, setSelectedTx] = useState(null);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+  const [metrics, setMetrics] = useState({
+    fiatBalance: 1250000.00,
+    cryptoBalance: 450.50,
+    activeContracts: 124
+  });
+  const [liveFeed, setLiveFeed] = useState(() => 
+    SYSTEM_LOGS.map((log, i) => ({
+      time: new Date(Date.now() - i * 60000).toLocaleTimeString('en-US', { hour12: false }),
+      node: ['N-US-EAST', 'N-EU-WEST', 'N-JP-TOK', 'N-SG-SIN'][i % 4],
+      action: log
+    }))
+  );
   const itemsPerPage = 6;
 
-  const [metrics, setMetrics] = useState({
-    fiatBalance: 15420.50,
-    cryptoBalance: 2.8540,
-    activeContracts: 1204
-  });
+  const { privacyMode } = useGlobal();
+  const { fiatBalance, cryptoBalance, fiatTxHistory, recentTx, anomalyScore } = useLiveFeed();
+  const { privacyActive, unlock } = useSecurityShield(120000);
+  const { currentPrice, ethUsd, currency, setCurrency, loading: priceLoading } = usePriceFeed();
+
+  const handleUnlock = (pin) => {
+    // 🛡️ Admin PIN Validation using Scrambled Keypad (10X Security)
+    if (pin === '1024') {
+      setPinError(false);
+      setPinInput('');
+      unlock();
+    } else {
+      setPinError(true);
+      setPinInput('');
+    }
+  };
+
+  const downloadStatementPdf = async () => {
+    try {
+      const response = await api.get('/api/export/statement/pdf', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'account_statement.pdf');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (e) {
+      console.error("Failed to download PDF", e);
+    }
+  };
+
+  const downloadTaxExportCsv = async () => {
+    try {
+      const response = await api.get('/api/export/transactions/csv', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'tax_export.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (e) {
+      console.error("Failed to download CSV", e);
+    }
+  };
 
   // 🛡️ PERMANENT FIX 1: Robust Mock Sync instead of fragile API calls to prevent "Network Error"
   useEffect(() => {
@@ -184,7 +245,45 @@ const Dashboard = () => {
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="w-full max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+    <>
+      <AnimatePresence>
+        {privacyActive && (
+          <motion.div 
+            initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+            animate={{ opacity: 1, backdropFilter: 'blur(24px)' }}
+            exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+            className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/60"
+          >
+            <ShieldCheck size={64} className="text-emerald-500 mb-6" />
+            <h2 className="text-3xl font-black text-white tracking-tight mb-2">Privacy Shield Active</h2>
+            <p className="text-zinc-400 mb-6 max-w-md text-center">Your terminal has been locked to prevent shoulder-surfing due to inactivity or window switching. Enter your PIN using the scrambled keypad below.</p>
+            
+            <div className="flex flex-col items-center gap-4 mb-8">
+              {pinError && (
+                <motion.p
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-red-500 text-sm font-bold animate-pulse"
+                >
+                  Incorrect PIN. Access Denied.
+                </motion.p>
+              )}
+              <ScrambledKeypad
+                onComplete={handleUnlock}
+                maxLength={4}
+                error={pinError}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        transition={{ duration: 0.4 }} 
+        className={`w-full max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-8 transition-all duration-500 ${privacyActive ? 'blur-xl select-none pointer-events-none opacity-40 scale-[0.98]' : ''}`}
+      >
 
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 bg-zinc-950 border border-zinc-800 p-6 rounded-3xl shadow-xl">
@@ -209,12 +308,12 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <StatCard
           title="Global Fiat Reserve"
-          value={`$${metrics.fiatBalance.toLocaleString('en-US', {minimumFractionDigits: 2})}`}
+          value={privacyMode ? '$XXXX.XX' : `$${metrics.fiatBalance.toLocaleString('en-US', {minimumFractionDigits: 2})}`}
           trend="+2.4%" up={true} icon={<WalletIcon className="text-emerald-500 w-6 h-6" />} sparklineData={[{val: 10}, {val: 15}, {val: 12}, {val: 20}, {val: 25}]}
         />
         <StatCard
           title="Crypto Vault (ETH)"
-          value={metrics.cryptoBalance.toFixed(4)}
+          value={privacyMode ? '***.****' : metrics.cryptoBalance.toFixed(4)}
           trend="-0.8%" up={false} icon={<Globe className="text-teal-500 w-6 h-6" />} sparklineData={[{val: 25}, {val: 20}, {val: 22}, {val: 15}, {val: 10}]}
         />
         <StatCard title="24h Trading Volume" value="$84.2M" trend="+12.5%" up={true} icon={<BarChart3 className="text-blue-500 w-6 h-6" />} sparklineData={[{val: 5}, {val: 10}, {val: 8}, {val: 18}, {val: 24}]} />
@@ -245,7 +344,7 @@ const Dashboard = () => {
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                       <XAxis dataKey="time" stroke="#52525b" fontSize={12} tickLine={false} axisLine={false} dy={10} />
-                      <YAxis yAxisId="left" stroke="#52525b" fontSize={12} tickLine={false} axisLine={false} domain={['dataMin - 100', 'dataMax + 100']} tickFormatter={(v) => `$${v}`} dx={-10} />
+                      <YAxis yAxisId="left" stroke="#52525b" fontSize={12} tickLine={false} axisLine={false} domain={['dataMin - 100', 'dataMax + 100']} tickFormatter={(v) => privacyMode ? '***' : `$${v}`} dx={-10} />
                       <YAxis yAxisId="right" orientation="right" hide domain={[0, 'dataMax * 3']} />
                       <Tooltip content={<LiquidityTooltip />} cursor={{ fill: '#27272a', opacity: 0.4 }} />
                       <Bar yAxisId="right" dataKey="volume" fill="#27272a" radius={[4, 4, 0, 0]} maxBarSize={40} />
@@ -272,7 +371,7 @@ const Dashboard = () => {
         <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-6 flex flex-col h-[500px] relative overflow-hidden shadow-xl">
           <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none" />
           <div className="flex items-center justify-between mb-6 relative z-10">
-            <h3 className="font-bold text-white flex items-center gap-2 text-lg"><Zap size={20} className="text-amber-500"/> Global Ledger Stream</h3>
+            <h3 className="font-bold text-white flex items-center gap-2"><Zap size={20} className="text-amber-500"/> Global Ledger Stream</h3>
             <span className="flex h-3 w-3 relative"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span></span>
           </div>
 
@@ -290,6 +389,12 @@ const Dashboard = () => {
           <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-zinc-950 to-transparent z-20 pointer-events-none" />
         </div>
       </div>
+
+      {/* SMART CONTRACT PANEL (Antigravity Protocol) */}
+      <TransactionPanel />
+
+      {/* AI AGENT (Direct-to-Inference) */}
+      <AIAgentWidget />
 
       {/* DATA GRID (Transactions) */}
       <div className="bg-zinc-950 border border-zinc-800 rounded-3xl shadow-xl overflow-hidden flex flex-col">
@@ -314,7 +419,14 @@ const Dashboard = () => {
               </select>
             </div>
 
-            <button onClick={handleExportCSV} className="bg-zinc-900 hover:bg-zinc-800 text-white border border-zinc-800 p-2 rounded-xl transition-colors" title="Export CSV"><Download size={18} /></button>
+            <div className="flex gap-3">
+              <button onClick={downloadTaxExportCsv} className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-zinc-800">
+                <Download size={16} /> CSV Export
+              </button>
+              <button onClick={downloadStatementPdf} className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-zinc-800">
+                <Download size={16} /> PDF Statement
+              </button>
+            </div>
           </div>
         </div>
 
@@ -333,14 +445,14 @@ const Dashboard = () => {
             <tbody className="divide-y divide-zinc-800/50">
               {paginatedData.length > 0 ? paginatedData.map((tx) => (
                 <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors group">
-                  <td className="p-5 font-mono text-sm text-zinc-300 group-hover:text-white transition-colors">{tx.id}</td>
+                  <td className="p-5 font-mono text-sm text-zinc-300 group-hover:text-white transition-colors">{privacyMode ? `${tx.id.split('-')[0]}-***` : tx.id}</td>
                   <td className="p-5">
                     <div className="flex flex-col">
                       <span className="text-sm font-bold text-white">{tx.type}</span>
                       <span className="text-xs font-mono text-zinc-500">{tx.asset}</span>
                     </div>
                   </td>
-                  <td className="p-5 font-mono text-sm font-bold text-white">{tx.amount} <span className="text-zinc-500 text-xs">{tx.asset}</span></td>
+                  <td className="p-5 font-mono text-sm font-bold text-white">{privacyMode ? '***.****' : tx.amount} <span className="text-zinc-500 text-xs">{tx.asset}</span></td>
                   <td className="p-5">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold border ${tx.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
                       {tx.status === 'Completed' ? <CheckCircle2 size={12}/> : <Clock size={12}/>} {tx.status}
@@ -377,9 +489,10 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <TransactionModal tx={selectedTx} onClose={() => setSelectedTx(null)} />
+      <TransactionModal tx={selectedTx} onClose={() => setSelectedTx(null)} privacyMode={privacyMode} />
 
     </motion.div>
+    </>
   );
 };
 

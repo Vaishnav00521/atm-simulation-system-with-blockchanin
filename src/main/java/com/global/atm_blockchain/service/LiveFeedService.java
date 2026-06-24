@@ -1,7 +1,7 @@
 package com.global.atm_blockchain.service;
 
+import com.corundumstudio.socketio.SocketIOServer;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -16,7 +16,7 @@ import java.util.Random;
 public class LiveFeedService {
 
     @Autowired
-    private SimpMessagingTemplate messagingTemplate;
+    private SocketIOServer socketIOServer;
 
     private final Random random = new Random();
     private final String[] nodes = {"Frankfurt-01", "Tokyo-04", "NewYork-02", "Mumbai-05", "London-03", "Singapore-08"};
@@ -36,7 +36,9 @@ public class LiveFeedService {
                 "action", action
         );
 
-        // Push it to anyone subscribed to "/topic/live-feed"
-        messagingTemplate.convertAndSend("/topic/live-feed", liveFeed);
+        // Push it to all connected Socket.IO clients on the "live-feed" event
+        if (socketIOServer != null) {
+            socketIOServer.getBroadcastOperations().sendEvent("live-feed", liveFeed);
+        }
     }
 }

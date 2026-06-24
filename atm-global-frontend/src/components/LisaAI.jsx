@@ -116,11 +116,12 @@ const LisaAI = memo(() => {
     scrollToBottom();
   }, [messages, isLoading, scrollToBottom]);
 
-  const handleSend = useCallback(async (e) => {
+  const handleSend = useCallback(async (e, overrideText) => {
     e?.preventDefault();
-    if (!input.trim() || isLoading) return;
+    const textToSend = overrideText || input;
+    if (!textToSend.trim() || isLoading) return;
 
-    const userText = input.trim();
+    const userText = textToSend.trim();
     const userMessage = { 
       id: Date.now(), 
       sender: 'user', 
@@ -129,7 +130,7 @@ const LisaAI = memo(() => {
     };
     
     setMessages(prev => [...prev, userMessage]);
-    setInput('');
+    if (!overrideText) setInput('');
     setIsLoading(true);
 
     // Check cache first
@@ -184,10 +185,7 @@ const LisaAI = memo(() => {
   }, [input, isLoading, language]);
 
   const handleQuickAction = useCallback((action) => {
-    setInput(action);
-    setTimeout(() => {
-      handleSend();
-    }, 100);
+    handleSend(null, action);
   }, [handleSend]);
 
   const toggleVoice = useCallback(() => {

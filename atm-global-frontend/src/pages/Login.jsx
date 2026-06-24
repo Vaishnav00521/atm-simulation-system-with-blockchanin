@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Lock, User, ShieldCheck, Cpu, ArrowRight, Eye, EyeOff, 
-  Terminal, AlertTriangle, UserPlus, LogIn
+  Terminal, AlertTriangle, UserPlus, LogIn, KeyRound, Fingerprint
 } from 'lucide-react';
+import { useWebAuthn } from '../hooks/useWebAuthn';
 import api from '../api/axiosClient'; // 🔴 Shared API instance
 import { useNavigate } from 'react-router-dom';
 
@@ -25,9 +26,13 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [needsTotp, setNeedsTotp] = useState(false);
+  const [totpCode, setTotpCode] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [terminalLines, setTerminalLines] = useState([]);
+  
+  const { isSupported: webAuthnSupported, authenticateWithPasskey } = useWebAuthn();
 
   // --- TERMINAL TYPING EFFECT ---
   useEffect(() => {
@@ -57,15 +62,35 @@ const Login = () => {
     const endpoint = isRegistering ? '/api/auth/register' : '/api/auth/login';
 
     try {
-      const response = await api.post(endpoint, {
+      const payload = {
         username: username,
         password: password
+      };
+      if (needsTotp && totpCode) {
+        payload.totpCode = totpCode;
+      }
+
+      // We expect HTTP 202 for "needs TOTP"
+      const response = await api.post(endpoint, payload, {
+        validateStatus: (status) => status >= 200 && status < 300
       });
+
+      if (response.status === 202 && response.data.requiresTotp) {
+        setNeedsTotp(true);
+        setIsLoading(false);
+        return;
+      }
 
       if (response.data && response.data.token) {
         // Store Token AND Username securely in the browser
         localStorage.setItem('fintech_jwt', response.data.token);
         localStorage.setItem('fintech_username', response.data.username || username);
+        // Store anti-phishing phrase for display on dashboard
+        if (response.data.antiPhishingPhrase) {
+          localStorage.setItem('anti_phishing_phrase', response.data.antiPhishingPhrase);
+        } else {
+          localStorage.removeItem('anti_phishing_phrase');
+        }
 
         // Safely route to dashboard
         navigate('/dashboard');
@@ -89,12 +114,32 @@ const Login = () => {
     }
   };
 
+  const handlePasskeyLogin = async () => {
+    if (!username) {
+      setError('Enter your Profile ID first to use Passkeys.');
+      return;
+    }
+    const data = await authenticateWithPasskey(username);
+    if (data && data.token) {
+      localStorage.setItem('fintech_jwt', data.token);
+      localStorage.setItem('fintech_username', data.username || username);
+      if (data.antiPhishingPhrase) {
+        localStorage.setItem('anti_phishing_phrase', data.antiPhishingPhrase);
+      }
+      navigate('/dashboard');
+    } else {
+      setError('Passkey authentication failed.');
+    }
+  };
+
   const toggleMode = () => {
     setIsRegistering(!isRegistering);
     setError('');
     setUsername('');
     setPassword('');
     setConfirmPassword('');
+    setNeedsTotp(false);
+    setTotpCode('');
   };
 
   return (
@@ -190,20 +235,48 @@ const Login = () => {
                   </div>
                 </div>
 
-                {isRegistering && (
+                {isRegistering && !needsTotp && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-1.5 overflow-hidden">
                     <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">Confirm Passcode</label>
                     <div className="relative group">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <Lock className="h-5 w-5 text-zinc-600 group-focus-within:text-emerald-500 transition-colors" />
                       </div>
-                      <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl py-3.5 pl-11 pr-4 text-white placeholder-zinc-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" placeholder="Verify secure passcode" required />
+                      <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl py-3.5 pl-11 pr-4 text-white placeholder-zinc-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" placeholder="Verify secure passcode" required={!needsTotp && isRegistering} />
                     </div>
                   </motion.div>
                 )}
 
-                <button type="submit" disabled={isLoading || !username || !password} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] flex items-center justify-center gap-2 mt-4 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                  {isLoading ? "Processing..." : isRegistering ? <>Establish Profile <UserPlus className="w-5 h-5" /></> : <>Initialize Handshake <ArrowRight className="w-5 h-5" /></>}
+                {/* TOTP Field */}
+                <AnimatePresence>
+                  {needsTotp && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }} 
+                      animate={{ opacity: 1, height: 'auto' }} 
+                      exit={{ opacity: 0, height: 0 }}
+                      className="space-y-1.5 overflow-hidden mt-4"
+                    >
+                      <label className="text-xs font-bold text-emerald-500 uppercase tracking-widest ml-1">Authenticator Code (2FA)</label>
+                      <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <KeyRound className="h-5 w-5 text-emerald-500" />
+                        </div>
+                        <input 
+                          type="text" 
+                          maxLength="6"
+                          value={totpCode} 
+                          onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))} 
+                          className="w-full bg-emerald-950/20 border border-emerald-500/30 rounded-xl py-3.5 pl-11 pr-4 text-emerald-400 placeholder-emerald-900/50 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono tracking-[0.5em] text-center" 
+                          placeholder="000000" 
+                          required={needsTotp} 
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <button type="submit" disabled={isLoading || !username || !password || (needsTotp && totpCode.length !== 6)} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] flex items-center justify-center gap-2 mt-4 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                  {isLoading ? "Processing..." : needsTotp ? <>Verify 2FA <ShieldCheck className="w-5 h-5" /></> : isRegistering ? <>Establish Profile <UserPlus className="w-5 h-5" /></> : <>Initialize Handshake <ArrowRight className="w-5 h-5" /></>}
                 </button>
 
                 <div className="relative mt-8">
@@ -212,6 +285,13 @@ const Login = () => {
                     <span className="bg-zinc-950 px-4 text-zinc-600 font-bold uppercase tracking-widest">Or</span>
                   </div>
                 </div>
+
+                {!isRegistering && webAuthnSupported && (
+                  <button type="button" onClick={handlePasskeyLogin} disabled={!username} className="w-full bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all mt-4">
+                    <Fingerprint className="w-5 h-5 text-emerald-500" />
+                    Sign in with Passkey
+                  </button>
+                )}
 
                 <div className="text-center mt-6">
                   <button type="button" onClick={toggleMode} className="text-sm font-bold text-zinc-400 hover:text-emerald-400 transition-colors flex items-center justify-center gap-2 w-full">

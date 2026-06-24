@@ -1,10 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Settings as SettingsIcon, User, Key, Shield, Bell, Save, Fingerprint } from 'lucide-react';
+import { Settings as SettingsIcon, User, Key, Shield, Bell, Save, Fingerprint, ShieldCheck, AlertTriangle, CheckCircle2, Lock } from 'lucide-react';
+import api from '../api/axiosClient';
+import TotpSetupModal from '../components/TotpSetupModal';
+import { useWebAuthn } from '../hooks/useWebAuthn';
 
 const Settings = () => {
   const currentUsername = localStorage.getItem('fintech_username') || 'Administrator';
   const [activeTab, setActiveTab] = useState('profile');
+  const [phraseInput, setPhraseInput] = useState(localStorage.getItem('anti_phishing_phrase') || '');
+  const [phraseStatus, setPhraseStatus] = useState(null); // 'success' | 'error' | null
+  const [phraseSaving, setPhraseSaving] = useState(false);
+  const [totpModalOpen, setTotpModalOpen] = useState(false);
+  const { registerPasskey } = useWebAuthn();
+  const [passkeyStatus, setPasskeyStatus] = useState('');
+
+  const handleSavePhrase = async () => {
+    if (!phraseInput.trim()) return;
+    setPhraseSaving(true);
+    setPhraseStatus(null);
+    try {
+      await api.put('/api/auth/anti-phishing', { phrase: phraseInput.trim() });
+      localStorage.setItem('anti_phishing_phrase', phraseInput.trim());
+      setPhraseStatus('success');
+    } catch (err) {
+      setPhraseStatus('error');
+    } finally {
+      setPhraseSaving(false);
+      setTimeout(() => setPhraseStatus(null), 3000);
+    }
+  };
+
+  const handleRegisterPasskey = async () => {
+    setPasskeyStatus('Registering...');
+    const success = await registerPasskey(currentUsername);
+    if (success) {
+      setPasskeyStatus('Passkey Registered Successfully!');
+      setTimeout(() => setPasskeyStatus(''), 3000);
+    } else {
+      setPasskeyStatus('Failed to register Passkey.');
+      setTimeout(() => setPasskeyStatus(''), 3000);
+    }
+  };
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-[1200px] mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
@@ -67,17 +104,72 @@ const Settings = () => {
           {activeTab === 'security' && (
             <div className="space-y-6">
               <h3 className="text-xl font-bold text-white border-b border-zinc-800 pb-4">Multi-Factor Security</h3>
+
+              {/* Anti-Phishing Phrase */}
+              <div className="bg-black border border-zinc-800 p-5 rounded-2xl space-y-4">
+                <div>
+                  <h4 className="text-white font-bold flex items-center gap-2"><ShieldCheck className="text-emerald-500" size={18}/> Anti-Phishing Phrase</h4>
+                  <p className="text-sm text-zinc-500 mt-1">Set a secret word shown on every page. If it's missing, you're on a fake site.</p>
+                </div>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={phraseInput}
+                    onChange={(e) => setPhraseInput(e.target.value)}
+                    placeholder="e.g. PurpleDragon2026"
+                    className="flex-1 bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+                    maxLength={40}
+                  />
+                  <button
+                    onClick={handleSavePhrase}
+                    disabled={phraseSaving || !phraseInput.trim()}
+                    className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-5 py-3 rounded-xl font-bold text-sm transition-colors flex items-center gap-2"
+                  >
+                    {phraseSaving ? 'Saving...' : <><Save size={14}/> Save</>}
+                  </button>
+                </div>
+                {phraseStatus === 'success' && (
+                  <p className="text-emerald-400 text-sm flex items-center gap-2"><CheckCircle2 size={14}/> Phrase saved and active.</p>
+                )}
+                {phraseStatus === 'error' && (
+                  <p className="text-red-400 text-sm flex items-center gap-2"><AlertTriangle size={14}/> Failed to save. Try again.</p>
+                )}
+              </div>
+
+              {/* WebAuthn / TOTP */}
               <div className="bg-black border border-zinc-800 p-5 rounded-2xl flex justify-between items-center">
                 <div>
-                  <h4 className="text-white font-bold flex items-center gap-2"><Fingerprint className="text-emerald-500"/> Biometric WebAuthn</h4>
-                  <p className="text-sm text-zinc-500 mt-1">Require TouchID or Windows Hello for high-value executions.</p>
+                  <h4 className="text-white font-bold flex items-center gap-2"><Lock className="text-emerald-500" size={18}/> Authenticator App (2FA)</h4>
+                  <p className="text-sm text-zinc-500 mt-1">Use Google Authenticator or Authy to generate one-time passcodes.</p>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-                </label>
+                <button 
+                  onClick={() => setTotpModalOpen(true)}
+                  className="bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-600 hover:text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors"
+                >
+                  Configure
+                </button>
               </div>
-              <div className="bg-black border border-zinc-800 p-5 rounded-2xl flex justify-between items-center opacity-50">
+              {/* Biometric WebAuthn */}
+              <div className="bg-black border border-zinc-800 p-5 rounded-2xl flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mt-4">
+                <div>
+                  <h4 className="text-white font-bold flex items-center gap-2"><Fingerprint className="text-emerald-500" size={18}/> Biometric WebAuthn</h4>
+                  <p className="text-sm text-zinc-500 mt-1">Register TouchID or Windows Hello as a secure Passkey.</p>
+                </div>
+                <div className="flex flex-col items-end">
+                  <button 
+                    onClick={handleRegisterPasskey}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors"
+                  >
+                    Register Passkey
+                  </button>
+                  {passkeyStatus && (
+                    <span className="text-xs text-emerald-400 mt-2">{passkeyStatus}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Hardware Key */}
+              <div className="bg-black border border-zinc-800 p-5 rounded-2xl flex justify-between items-center opacity-50 mt-4">
                 <div>
                   <h4 className="text-white font-bold flex items-center gap-2">Hardware Security Key (YubiKey)</h4>
                   <p className="text-sm text-zinc-500 mt-1">FIDO2 compliant physical token required for login.</p>
@@ -98,6 +190,15 @@ const Settings = () => {
 
         </div>
       </div>
+
+      <TotpSetupModal 
+        isOpen={totpModalOpen} 
+        onClose={() => setTotpModalOpen(false)} 
+        onComplete={() => {
+          // You could show a toast here
+          console.log("TOTP Enabled successfully");
+        }} 
+      />
     </motion.div>
   );
 };
